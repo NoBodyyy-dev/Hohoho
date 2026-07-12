@@ -86,7 +86,6 @@ func setup(p_house: HouseBuilder, p_player_controlled: bool, p_match: Node) -> v
 		camera.near = 0.05
 		eyes.add_child(camera)
 		camera.current = true
-		PostFX.attach_outline(camera)
 
 ## Последняя минута: грабитель наглеет — быстрее, замедления слабее.
 func enrage() -> void:

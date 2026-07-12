@@ -25,7 +25,6 @@ func _run_showcase() -> void:
 	HouseBuilder.build_night_env(root)
 	var cam := Camera3D.new()
 	root.add_child(cam)
-	PostFX.attach_outline(cam)
 	var ids := ["saw", "mousetrap", "rope_coil", "banana_peel", "firecracker", "marbles",
 		"pressure_plate", "perfume", "wire_spool", "screwdriver", "ladder", "suitcase", "jewel_ring"]
 	var x := 0.0

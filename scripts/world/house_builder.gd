@@ -1038,9 +1038,11 @@ static func build_night_env(parent: Node) -> void:
 	we.environment = env
 	parent.add_child(we)
 	var moon := DirectionalLight3D.new()
-	moon.light_color = Color(0.78, 0.82, 1.0)
-	moon.light_energy = 0.7
+	moon.light_color = Color(0.82, 0.86, 1.0)
+	moon.light_energy = 0.8
 	moon.shadow_enabled = true
+	moon.shadow_blur = 1.5              # мягкие края теней — вайб Meccha
+	moon.directional_shadow_blend_splits = true
 	moon.rotation_degrees = Vector3(-50, 35, 0)
 	parent.add_child(moon)
 	# луна
