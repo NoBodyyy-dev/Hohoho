@@ -281,7 +281,20 @@ func _build_wire_mesh() -> void:
 static func zd_of(xd: Vector3, yd: Vector3) -> Vector3:
 	return xd.cross(yd)
 
+# Ловушки с готовой custom-моделью (id ловушки → файл в assets/custom/).
+const CUSTOM_MODELS := {
+	"mousetrap": "c:mousetrap", "banana": "c:banana_peel", "marbles": "c:marbles",
+	"firecracker": "c:firecracker", "firecracker_chimney": "c:firecracker",
+	"perfume": "c:perfume", "plate": "c:pressure_plate", "plate_link": "c:pressure_plate",
+}
+
 func _build_visual() -> void:
+	# сначала пробуем настоящую модель (нейронка, стиль Meccha); нет — процедура
+	if CUSTOM_MODELS.has(trap_id):
+		var m := ModelLib.place(self, CUSTOM_MODELS[trap_id], Vector3.ZERO, Vector3(0.6, 0.4, 0.6))
+		if m != null:
+			_apply_hidden_alpha()
+			return
 	match trap_id:
 		"shards":
 			var rng := RandomNumberGenerator.new()
@@ -405,10 +418,22 @@ func _build_visual() -> void:
 	# верёвка от триггера к связанному объекту — видно, что заряжено
 	if not link.is_empty():
 		_draw_link_wire()
-	if hidden:
-		# пацанам видно полупрозрачно, что под ковром что-то лежит
-		for child in get_children():
-			if child is MeshInstance3D:
-				var mat: StandardMaterial3D = child.material_override
+	_apply_hidden_alpha()
+
+## Под ковром ловушку видно полупрозрачно (и своим, и грабителю — слегка).
+func _apply_hidden_alpha() -> void:
+	if not hidden:
+		return
+	var stack: Array = [self]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is MeshInstance3D:
+			var mi: MeshInstance3D = n
+			if mi.material_override is StandardMaterial3D:
+				var mat: StandardMaterial3D = mi.material_override
 				mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 				mat.albedo_color.a = 0.45
+			else:
+				mi.transparency = 0.55
+		for c in n.get_children():
+			stack.push_back(c)

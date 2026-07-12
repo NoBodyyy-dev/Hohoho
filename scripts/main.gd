@@ -12,7 +12,56 @@ func _ready() -> void:
 	if OS.get_environment("SANTA_SHOT") != "":
 		_run_shot_test()
 		return
+	if OS.get_environment("CUSTOM_SHOWCASE") != "":
+		_run_showcase()
+		return
 	_show_menu()
+
+## Витрина: все custom-модели в ряд под нашим контуром+светом — оценить стиль.
+func _run_showcase() -> void:
+	var dir: String = OS.get_environment("CUSTOM_SHOWCASE")
+	var root := Node3D.new()
+	add_child(root)
+	HouseBuilder.build_night_env(root)
+	var cam := Camera3D.new()
+	root.add_child(cam)
+	PostFX.attach_outline(cam)
+	var ids := ["saw", "mousetrap", "rope_coil", "banana_peel", "firecracker", "marbles",
+		"pressure_plate", "perfume", "wire_spool", "screwdriver", "ladder", "suitcase", "jewel_ring"]
+	var x := 0.0
+	var placed: Array = []
+	for id in ids:
+		var m := ModelLib.place(root, "c:" + id, Vector3(x, 0, 0), Vector3(0.9, 0.9, 0.9), 0.0, false)
+		if m != null:
+			placed.append(id)
+			var lbl := Label3D.new()
+			lbl.text = id
+			lbl.font_size = 48
+			lbl.pixel_size = 0.003
+			lbl.position = Vector3(x, -0.15, 0)
+			lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			root.add_child(lbl)
+		x += 1.2
+	print("SHOWCASE: загружено %d/%d — %s" % [placed.size(), ids.size(), ", ".join(placed)])
+	var total := (placed.size() - 1) * 1.2
+	cam.position = Vector3(total * 0.5, 1.6, total * 0.75 + 3.0)
+	cam.look_at(Vector3(total * 0.5, 0.4, 0))
+	var key := DirectionalLight3D.new()
+	key.rotation_degrees = Vector3(-45, 25, 0)
+	key.light_energy = 1.2
+	root.add_child(key)
+	await get_tree().create_timer(1.0).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(dir + "/showcase.png")
+	print("SHOT: " + dir + "/showcase.png")
+	# крупный план первых трёх
+	cam.position = Vector3(1.2, 1.0, 3.0)
+	cam.look_at(Vector3(1.2, 0.4, 0))
+	await get_tree().create_timer(0.4).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(dir + "/showcase_close.png")
+	print("SHOT: " + dir + "/showcase_close.png")
+	get_tree().quit(0)
 
 ## Автоскриншоты для визуальной проверки: меню, подготовка, режим ловушек, грабитель.
 func _run_shot_test() -> void:
