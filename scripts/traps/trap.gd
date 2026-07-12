@@ -27,7 +27,8 @@ func setup(id: String, p_cell: Vector2i, p_quality: float, p_hidden: bool, vis_m
 	delay = float(opts.get("delay", 0.0))
 	wire = opts.get("wire", {})
 	visibility = def["vis"] * vis_mult * (Defs.CARPET_VIS_MULT if hidden else 1.0)
-	position = Defs.cell_to_world(cell)
+	# ghost-установка даёт точную точку на поверхности; фолбэк — центр клетки
+	position = opts.get("pos", Defs.cell_to_world(cell))
 	_build_visual()
 	_build_area()
 
@@ -60,7 +61,7 @@ func _build_area() -> void:
 func _on_body(body: Node3D) -> void:
 	if spent or retrigger_cd > 0.0:
 		return
-	if not body.is_in_group("santa"):
+	if not body.is_in_group("robbers"):
 		return
 	# осечка: плохо поставленная ловушка может не сработать
 	if quality < 0.75 and randf() < 0.4:

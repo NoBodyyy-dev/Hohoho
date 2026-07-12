@@ -16,6 +16,8 @@ var chandeliers: Dictionary = {}    # Vector2i -> Node3D
 var shelves: Array = []             # роняемая мебель: {cells, cell, node, type}
 var tvs: Array = []                 # телевизоры-электрошок: {cell, node}
 var carpet_nodes: Array = []        # ковры-выдергушки: {rect, node}
+var searchables: Array = []         # обыскиваемая мебель: {cell, node, type, searched, jewel, item}
+var entry_states: Array = []        # по индексу entries: {closed, broken, barrier}
 var astar := AStar3D.new()
 var entries: Array = []
 var present_spots: Array = []
@@ -618,6 +620,10 @@ func _build_furniture() -> void:
 			shelves.append({"cells": cells, "cell": cells[0], "node": node, "type": f["type"]})
 		elif f["type"] == "tv":
 			tvs.append({"cell": cells[0], "node": node})
+		# мебель с ящиками/дверцами — можно обыскивать (драгоценности и снаряжение)
+		if f["type"] in ["shelf", "wardrobe", "fridge", "counter", "boxes", "bed"]:
+			searchables.append({"cell": cells[0], "cells": cells, "node": node,
+				"type": f["type"], "searched": false, "jewel": false, "item": ""})
 
 func _make_furniture(n: Node3D, type: String, w: float, d: float) -> void:
 	if _make_furniture_model(n, type, w, d):
@@ -1249,6 +1255,116 @@ func find_linkable(cell: Vector2i) -> Dictionary:
 			best_d = d
 			best = {"type": "tv", "cell": tv["cell"], "tv": tv}
 	return best
+
+# ---------------------------------------------------------------- ГРАБЁЖ: ЛУТ И ОКНА
+
+## Раскладывает драгоценности и снаряжение мелких по обыскиваемой мебели.
+func scatter_loot(jewel_count: int, rng: RandomNumberGenerator) -> void:
+	entry_states = []
+	for e in entries:
+		entry_states.append({"closed": false, "broken": false, "barrier": null})
+	var idxs := range(searchables.size())
+	# перемешиваем слоты
+	for i in idxs.size():
+		var j := rng.randi_range(0, idxs.size() - 1)
+		var tmp: int = idxs[i]
+		idxs[i] = idxs[j]
+		idxs[j] = tmp
+	var placed := 0
+	for i in idxs:
+		if placed >= jewel_count:
+			break
+		searchables[i]["jewel"] = true
+		placed += 1
+	# остальным — лут для мелких по таблице весов
+	var total := 0
+	for k in Defs.SEARCH_LOOT:
+		total += int(Defs.SEARCH_LOOT[k])
+	for s in searchables:
+		if s["jewel"]:
+			continue
+		var roll := rng.randi_range(0, total - 1)
+		for k in Defs.SEARCH_LOOT:
+			roll -= int(Defs.SEARCH_LOOT[k])
+			if roll < 0:
+				s["item"] = k
+				break
+
+## Сколько драгоценностей ещё лежит в мебели.
+func jewels_left() -> int:
+	var n := 0
+	for s in searchables:
+		if s["jewel"] and not s["searched"]:
+			n += 1
+	return n
+
+## Ближайшая необысканная мебель в радиусе.
+func searchable_near(pos: Vector3, range_m: float) -> Dictionary:
+	var best := {}
+	var best_d := range_m
+	for s in searchables:
+		if s["searched"]:
+			continue
+		var d: float = pos.distance_to(Defs.cell_to_world(s["cell"]))
+		if d < best_d:
+			best_d = d
+			best = s
+	return best
+
+## Ближайшее окно/балкон в радиусе (для закрывания мелким и взлома грабителем).
+func window_near(pos: Vector3, range_m: float) -> Dictionary:
+	var best := {}
+	var best_d := range_m
+	for i in entries.size():
+		var e: Dictionary = entries[i]
+		if e["type"] == "door":
+			continue   # главный вход не закрывается
+		var d: float = pos.distance_to(Defs.cell_to_world(e["cell"]))
+		if d < best_d:
+			best_d = d
+			best = {"index": i, "entry": e, "state": entry_states[i]}
+	return best
+
+## Мелкий закрыл окно: физический заслон + блок для навигации грабителя.
+func close_entry(i: int) -> void:
+	var st: Dictionary = entry_states[i]
+	if st["closed"]:
+		return
+	st["closed"] = true
+	var e: Dictionary = entries[i]
+	var cell: Vector2i = e["cell"]
+	var dirv: Vector2i = e["out_dir"]
+	var horizontal := dirv.y != 0
+	var size := Vector3(1.0, 1.5, 0.14) if horizontal else Vector3(0.14, 1.5, 1.0)
+	var pos := Defs.cell_to_world(cell) + Vector3(dirv.x * 0.5, 1.45, dirv.y * 0.5)
+	var b := _add_static_box(root, size, pos, Color(0.5, 0.35, 0.22))
+	# доски крест-накрест — видно, что заколочено
+	var plank := BoxMesh.new()
+	plank.size = Vector3(1.15, 0.12, 0.03) if horizontal else Vector3(0.03, 0.12, 1.15)
+	for ang in [0.5, -0.5]:
+		var mi := MeshInstance3D.new()
+		mi.mesh = plank
+		mi.material_override = Defs.wood_mat(Color(0.45, 0.3, 0.18))
+		mi.position = pos + Vector3(0, 0.05, 0)
+		mi.rotation.z = ang if horizontal else 0.0
+		mi.rotation.x = 0.0 if horizontal else ang
+		root.add_child(mi)
+		st["barrier_planks"] = st.get("barrier_planks", [])
+		st["barrier_planks"].append(mi)
+	st["barrier"] = b
+
+## Грабитель взломал заколоченное окно.
+func break_entry(i: int) -> void:
+	var st: Dictionary = entry_states[i]
+	if not st["closed"] or st["broken"]:
+		return
+	st["broken"] = true
+	st["closed"] = false
+	if is_instance_valid(st["barrier"]):
+		st["barrier"].queue_free()
+	for p in st.get("barrier_planks", []):
+		if is_instance_valid(p):
+			p.queue_free()
 
 # ---------------------------------------------------------------- НАВИГАЦИЯ
 

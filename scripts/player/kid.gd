@@ -17,9 +17,11 @@ var place_mult := 1.0
 var vis_mult := 1.0
 
 var frozen := false
-var is_sacked := false
+var is_sacked := false   # связан грабителем
 var sack_mash := 0
 var tank_escape_left := 0
+var match_ref: Node          # Match — обыск мебели и окна через него
+var action: Dictionary = {}  # текущее удержание E: {type, t, total, ...}
 
 var yaw := 0.0
 var pitch := 0.0
@@ -115,6 +117,26 @@ func _physics_process(delta: float) -> void:
 			velocity.y -= GRAVITY * delta
 		move_and_slide()
 		return
+
+	# удержание E — заколотить окно / порыться в мебели (через Match)
+	if match_ref != null and Input.is_action_pressed("interact"):
+		if action.is_empty():
+			action = match_ref.kid_action_at(self)
+		if not action.is_empty():
+			action["t"] += delta
+			match_ref.hud.update_qte(action["t"] / action["total"], -1.0, false)
+			velocity.x = 0
+			velocity.z = 0
+			move_and_slide()
+			if action["t"] >= action["total"]:
+				var done: Dictionary = action
+				action = {}
+				match_ref.hud.hide_qte()
+				match_ref.kid_action_done(self, done)
+			return
+	elif not action.is_empty():
+		action = {}
+		match_ref.hud.hide_qte()
 
 	var input_dir := Input.get_vector("move_left", "move_right", "move_fwd", "move_back")
 	var dir := (Basis(Vector3.UP, yaw) * Vector3(input_dir.x, 0, input_dir.y)).normalized()

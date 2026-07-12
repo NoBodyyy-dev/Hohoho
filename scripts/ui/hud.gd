@@ -212,7 +212,7 @@ func set_santa_status(effects: Array) -> void:
 		status_panel.visible = false
 		return
 	status_panel.visible = true
-	status_label.text = "Санта: " + "  ".join(effects)
+	status_label.text = "Грабитель: " + "  ".join(effects)
 
 # ---------------------------------------------------------------- ОБНОВЛЕНИЯ
 
@@ -225,7 +225,7 @@ func set_timer(sec: float) -> void:
 	timer_label.add_theme_color_override("font_color", Color(1, 0.4, 0.4) if s <= 30 else UITheme.TEXT)
 
 func set_presents(cur: int, total: int) -> void:
-	presents_label.text = "Подарки Санты: %d / %d" % [cur, total]
+	presents_label.text = "💎 Украдено: %d / %d" % [cur, total]
 
 ## Хотбар-слоты предметов (как в Minecraft). В режиме ловушек ими выбираешь, что ставить.
 func set_pockets(loadout: Dictionary) -> void:
@@ -397,7 +397,7 @@ func _build_sack_panel() -> void:
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 10)
 	sack_panel.add_child(vb)
-	UITheme.fancy_label(vb, "ТЫ В МЕШКЕ У САНТЫ!", 28, Color(1, 0.45, 0.35))
+	UITheme.fancy_label(vb, "ТЕБЯ СВЯЗАЛИ!", 28, Color(1, 0.45, 0.35))
 	UITheme.fancy_label(vb, "ЖМИ ПРОБЕЛ!", 22, UITheme.ACCENT)
 	sack_bar = ProgressBar.new()
 	sack_bar.max_value = 1.0
@@ -438,9 +438,15 @@ func _build_qte_panel() -> void:
 	vb.add_child(qte_bar)
 	root.add_child(qte_panel)
 
-func show_qte(trap_name: String) -> void:
+func show_qte(title: String) -> void:
 	qte_panel.visible = true
-	qte_title.text = "Ставим: " + trap_name
+	qte_title.text = title
+	# для действий без QTE-бегунка (обыск/взлом) прячем подсказку про пробел
+	var is_action := not title.begins_with("Ставим")
+	qte_bar.visible = not is_action
+	var hint := qte_panel.find_child("QteHint", true, false)
+	if hint != null:
+		hint.visible = not is_action
 
 func update_qte(progress: float, value: float, locked: bool) -> void:
 	qte_progress.value = clampf(progress, 0, 1)

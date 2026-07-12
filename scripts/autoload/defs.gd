@@ -19,16 +19,16 @@ const CHARACTERS := {
 		"speed": 5.5,
 		"place_mult": 1.0,
 		"pocket_points": 8,
-		"perk": "Эксклюзив: Сеть и Шокер. Карманы 8 оч.",
+		"perk": "Эксклюзив: Сеть и Шокер.",
 		"shirt": Color(0.35, 0.65, 0.85), "pants": Color(0.35, 0.3, 0.3), "hat": Color(0.9, 0.85, 0.6),
 	},
 	"tank": {
 		"name": "Крепыш",
-		"desc": "Тяжёлый на подъём, но из мешка Санты вырывается сам. Один раз.",
+		"desc": "Тяжёлый на подъём, но из верёвок грабителей выпутывается сам. Один раз.",
 		"speed": 4.9,
 		"place_mult": 1.15,
 		"pocket_points": 12,
-		"perk": "Сам вылезает из мешка (1 раз). Карманы 12 оч.",
+		"perk": "Сам развязывается (1 раз).",
 		"shirt": Color(0.55, 0.75, 0.35), "pants": Color(0.4, 0.3, 0.25), "hat": Color(0.55, 0.75, 0.35),
 	},
 	"tiny": {
@@ -401,12 +401,33 @@ const PERK_POCKET_COST := 500
 
 # ---------------------------------------------------------------- МАТЧ (дефолты; лобби может менять)
 
-const PREP_TIME := 45.0
-const MATCH_TIME := 240.0
-const PREP_OPTIONS := [30.0, 45.0, 60.0, 90.0]
+const PREP_TIME := 120.0          # подготовка мелких (грабители снаружи)
+const MATCH_TIME := 240.0         # ограбление до приезда полиции
+const POLICE_ESCAPE := 20.0       # после сирен — успей выбежать
+const PREP_OPTIONS := [60.0, 90.0, 120.0, 180.0]
 const TIME_OPTIONS := [180.0, 240.0, 300.0, 360.0]
 const ENRAGE_TIME := 60.0
 const COOKIE_LURE_RANGE := 14.0
+
+# --- ГРАБЁЖ: драгоценности и обыск
+const JEWELS_PER_HOUSE := 6       # сколько драгоценностей прячется по слотам
+const SEARCH_TIME := 1.6          # удержание E у мебели (грабитель ищет)
+const KID_SEARCH_TIME := 1.2      # мелкий роется в мебели за снаряжением
+const WINDOW_CLOSE_TIME := 1.5    # мелкий закрывает окно
+const WINDOW_BREAK_TIME := 6.0    # грабитель взламывает закрытое окно (шумно!)
+const TIE_TIME := 2.0             # грабитель вяжет мелкого
+const UNTIE_TIME := 3.0           # напарник развязывает
+const INTERACT_RANGE := 2.2
+
+## Что мелкие находят в мебели (id предмета -> вес выпадения). "" — пусто.
+const SEARCH_LOOT := {
+	"": 3, "shards": 2, "tape": 2, "banana": 2, "marbles": 2, "mousetrap": 2,
+	"oil": 1, "glue": 1, "rope": 1, "plate": 1, "perfume": 1, "cookie": 1,
+	"firecracker": 1, "bucket": 1, "garland_shock": 1, "net": 1,
+}
+
+## Стартовый чемодан у спавна мелких — базовый набор на команду.
+const SUITCASE_LOADOUT := {"shards": 2, "tape": 1, "rope": 2, "mousetrap": 2, "banana": 1, "marbles": 1, "plate": 1}
 const CHAIN_DELAY := 0.35    # задержка цепного срабатывания соседних ловушек
 const CHAIN_RANGE := 1.9     # Санта должен быть рядом, чтобы цепь его задела
 const COMBO_QUALITY_BONUS := 0.08  # к качеству за каждую соседнюю ловушку
@@ -464,18 +485,16 @@ const SACK_RANGE := 1.6
 const SACK_COOLDOWN := 12.0
 const SACK_MASH_NEED := 10
 
-# Фишки Санты-игрока
-const SANTA_SENSE_CD := 18.0   # Q — «чуйка»: подсветить ловушки рядом
+# Фишки грабителя-игрока
+const SANTA_SENSE_CD := 18.0   # Q — «глаз-алмаз»: подсветить ловушки рядом
 const SANTA_SENSE_RANGE := 9.0
-const SANTA_HOHO_CD := 15.0    # R — «ХО-ХО-ХО»: пугает пацанов, сбивает установку
+const SANTA_HOHO_CD := 15.0    # R — рык: пугает пацанов, сбивает установку
 const SANTA_HOHO_RANGE := 7.0
-const SANTA_PSENSE_CD := 10.0  # F — «чуйка на подарки»: примерные зоны доставки
-const PSENSE_SPOT_FUZZ := 1.6  # случайный сдвиг подсказки от точного места (клеток)
-const PSENSE_REVEAL := 2.6     # с какого расстояния метка доставки «теплеет» Санте
+const SANTA_PSENSE_CD := 14.0  # F — «чутьё наживы»: подсветить комнату с драгоценностями
 
-const REWARD_CATCH := [120, 60]
-const REWARD_SCARE := [40, 30]
-const REWARD_LOSE := [10, 10]
+const REWARD_CATCH := [120, 60]   # мелкие отстояли дом
+const REWARD_SCARE := [40, 30]    # частично отстояли
+const REWARD_LOSE := [10, 10]     # грабители обчистили
 
 # ---------------------------------------------------------------- INPUT
 

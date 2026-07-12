@@ -92,7 +92,7 @@ func _show_title() -> void:
 	vb.add_child(spacer)
 	_btn(vb, "ИГРАТЬ", _show_setup, true)
 	_btn(vb, "МАГАЗИН", _show_shop, true)
-	_btn(vb, "ТРЕНИРОВКА САНТЫ", func(): start_match.emit({"santa_mode": true, "loc_id": sel_loc, "loadout": {}}), true)
+	_btn(vb, "ЗА ГРАБИТЕЛЯ", func(): start_match.emit({"robber_mode": true, "loc_id": sel_loc, "char_id": "speedy"}), true)
 	_btn(vb, "ВЫХОД", func(): get_tree().quit(), true)
 	var stats := UITheme.fancy_label(vb, "Поймано Сант: %d" % int(SaveGame.data.get("catches", 0)), 14, Color(0.7, 0.75, 0.9))
 	stats.modulate.a = 0.85
@@ -102,7 +102,6 @@ func _show_title() -> void:
 func _show_setup() -> void:
 	_clear()
 	_top_bar()
-	_default_loadout()
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", 24)
@@ -145,57 +144,27 @@ func _show_setup() -> void:
 	perk_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	perk_l.custom_minimum_size.x = 280
 
-	# --- карманы
-	var pocket_panel := PanelContainer.new()
-	cols.add_child(pocket_panel)
-	var pocket_col := VBoxContainer.new()
-	pocket_col.add_theme_constant_override("separation", 3)
-	pocket_col.custom_minimum_size.x = 400
-	pocket_panel.add_child(pocket_col)
-	UITheme.fancy_label(pocket_col, "КАРМАНЫ", 19)
-	var budget := SaveGame.pocket_points(sel_char)
-	var points_label := UITheme.fancy_label(pocket_col, "", 18, Color(0.6, 1, 0.6))
-	for item_id in Defs.ITEMS:
+	# --- снаряжение: чемодан + поиск по дому (карманы больше не покупаются)
+	var gear_panel := PanelContainer.new()
+	cols.add_child(gear_panel)
+	var gear_col := VBoxContainer.new()
+	gear_col.add_theme_constant_override("separation", 5)
+	gear_col.custom_minimum_size.x = 400
+	gear_panel.add_child(gear_col)
+	UITheme.fancy_label(gear_col, "СНАРЯЖЕНИЕ", 19)
+	var about := UITheme.fancy_label(gear_col,
+		"Стартовый чемодан ждёт у спавна, остальное ИЩИТЕ ПО ДОМУ:\nройтесь в тумбочках и шкафах (E) — там снаряжение для ловушек.", 13, Color(0.8, 0.85, 1))
+	about.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	about.custom_minimum_size.x = 380
+	UITheme.fancy_label(gear_col, "В чемодане:", 15, Color(0.6, 1, 0.7))
+	for item_id in Defs.SUITCASE_LOADOUT:
 		var it: Dictionary = Defs.ITEMS[item_id]
-		if it["only_char"] != "" and it["only_char"] != sel_char:
-			continue
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 6)
-		pocket_col.add_child(row)
-		var name_l := Label.new()
-		name_l.text = "%s [%d]" % [it["name"], it["cost"]]
-		name_l.add_theme_font_size_override("font_size", 14)
-		name_l.custom_minimum_size.x = 240
-		name_l.tooltip_text = it["desc"]
-		name_l.mouse_filter = Control.MOUSE_FILTER_STOP
-		row.add_child(name_l)
-		var count_l := Label.new()
-		count_l.add_theme_font_size_override("font_size", 15)
-		var iid: String = item_id
-		var refresh := func():
-			count_l.text = "×%d" % int(loadout.get(iid, 0))
-			points_label.text = "Очки: %d / %d" % [_points_used(), budget]
-		var minus := Button.new()
-		minus.text = "−"
-		minus.custom_minimum_size.x = 34
-		minus.pressed.connect(func():
-			if int(loadout.get(iid, 0)) > 0:
-				loadout[iid] = int(loadout[iid]) - 1
-				refresh.call())
-		row.add_child(minus)
-		row.add_child(count_l)
-		var plus := Button.new()
-		plus.text = "+"
-		plus.custom_minimum_size.x = 34
-		plus.pressed.connect(func():
-			if _points_used() + int(it["cost"]) <= budget:
-				loadout[iid] = int(loadout.get(iid, 0)) + 1
-				refresh.call())
-		row.add_child(plus)
-		refresh.call()
-	points_label.text = "Очки: %d / %d" % [_points_used(), budget]
-	var hint := UITheme.fancy_label(pocket_col, "Наведи на предмет — описание", 12, Color(0.65, 0.7, 0.85))
-	hint.modulate.a = 0.8
+		var l := Label.new()
+		l.text = "• %s ×%d" % [it["name"], int(Defs.SUITCASE_LOADOUT[item_id])]
+		l.add_theme_font_size_override("font_size", 14)
+		l.tooltip_text = it["desc"]
+		l.mouse_filter = Control.MOUSE_FILTER_STOP
+		gear_col.add_child(l)
 
 	# --- локации
 	var loc_panel := PanelContainer.new()
@@ -228,12 +197,12 @@ func _show_setup() -> void:
 	var sep := HSeparator.new()
 	loc_col.add_child(sep)
 	UITheme.fancy_label(loc_col, "НАСТРОЙКИ ЛОББИ", 17)
-	var santa_opt := OptionButton.new()
-	for o in ["Санта: Бот", "Санта: Я (тренировка)", "Санта: Рандом"]:
-		santa_opt.add_item(o)
-	santa_opt.selected = sel_santa
-	santa_opt.item_selected.connect(func(i): sel_santa = i)
-	loc_col.add_child(santa_opt)
+	var role_opt := OptionButton.new()
+	for o in ["Я — мелкий (защита дома)", "Я — грабитель"]:
+		role_opt.add_item(o)
+	role_opt.selected = mini(sel_santa, 1)
+	role_opt.item_selected.connect(func(i): sel_santa = i)
+	loc_col.add_child(role_opt)
 	var prep_opt := OptionButton.new()
 	for o in Defs.PREP_OPTIONS:
 		prep_opt.add_item("Подготовка: %d сек" % int(o))
@@ -242,7 +211,7 @@ func _show_setup() -> void:
 	loc_col.add_child(prep_opt)
 	var time_opt := OptionButton.new()
 	for o in Defs.TIME_OPTIONS:
-		time_opt.add_item("У Санты: %d мин" % int(o / 60))
+		time_opt.add_item("До полиции: %d мин" % int(o / 60))
 	time_opt.selected = sel_time
 	time_opt.item_selected.connect(func(i): sel_time = i)
 	loc_col.add_child(time_opt)
@@ -253,8 +222,7 @@ func _show_setup() -> void:
 	bottom.add_theme_constant_override("separation", 20)
 	vb.add_child(bottom)
 	_btn(bottom, "← Назад", _show_title)
-	var start := _btn(bottom, "В ЗАСАДУ!", _emit_start, true)
-	start.disabled = _points_used() == 0
+	_btn(bottom, "В ЗАСАДУ!", _emit_start, true)
 
 func _make_preview() -> Control:
 	var svc := SubViewportContainer.new()
@@ -285,41 +253,13 @@ func _make_preview() -> Control:
 	return svc
 
 func _emit_start() -> void:
-	if _points_used() == 0:
-		return
-	var santa_is_me := sel_santa == 1 or (sel_santa == 2 and randf() < 0.5)
 	start_match.emit({
 		"char_id": sel_char,
 		"loc_id": sel_loc,
-		"loadout": loadout.duplicate(),
-		"santa_mode": santa_is_me,
+		"robber_mode": sel_santa == 1,
 		"prep_time": Defs.PREP_OPTIONS[sel_prep],
 		"match_time": Defs.TIME_OPTIONS[sel_time],
 	})
-
-func _points_used() -> int:
-	var used := 0
-	for iid in loadout:
-		used += int(loadout[iid]) * int(Defs.ITEMS[iid]["cost"])
-	return used
-
-func _default_loadout() -> void:
-	if not loadout.is_empty():
-		for iid in loadout.keys():
-			var only: String = Defs.ITEMS[iid]["only_char"]
-			if only != "" and only != sel_char:
-				loadout.erase(iid)
-		while _points_used() > SaveGame.pocket_points(sel_char):
-			for iid in loadout.keys():
-				if int(loadout[iid]) > 0:
-					loadout[iid] = int(loadout[iid]) - 1
-					break
-		return
-	loadout = {"shards": 2, "rope": 1, "oil": 1, "mousetrap": 1, "firecracker": 1}
-	while _points_used() > SaveGame.pocket_points(sel_char):
-		loadout["shards"] = maxi(int(loadout.get("shards", 0)) - 1, 0)
-		if _points_used() > SaveGame.pocket_points(sel_char):
-			loadout.erase("firecracker")
 
 # ================================================================ МАГАЗИН
 

@@ -6,7 +6,6 @@ extends Node
 ## к люстре/шкафу/ТВ/ковру. После установки — QTE на качество.
 
 const RANGE := 4.5
-const GRID_N := 5
 const ROPE_ITEMS := ["rope"]   # предметы с установкой «две точки»
 
 var match_node: Node
@@ -17,7 +16,6 @@ var active := false
 var aimed_cell := Vector2i(-99, -99)
 var items: Array = []      # item_id в порядке хотбара
 var sel_i := 0
-var grid_quads: Array = []
 var hint_nodes: Array = []
 
 # призраки-превью
@@ -32,6 +30,7 @@ var place_trap_id := ""
 var place_item_id := ""
 var place_hidden := false
 var place_cell := Vector2i(-99, -99)
+var place_pos := Vector3.ZERO
 var place_link: Dictionary = {}
 var place_wire: Dictionary = {}
 var place_t := 0.0
@@ -120,7 +119,6 @@ func activate() -> void:
 	active = true
 	items = match_node.loadout.keys()
 	sel_i = clampi(sel_i, 0, maxi(items.size() - 1, 0))
-	_make_grid()
 	_make_ghost()
 	_make_hints()
 	match_node.hud.set_crosshair(true)
@@ -133,9 +131,6 @@ func deactivate() -> void:
 		_cancel_place()
 	active = false
 	rope_anchor = {}
-	for q in grid_quads:
-		q.queue_free()
-	grid_quads = []
 	for h in hint_nodes:
 		if is_instance_valid(h):
 			h.queue_free()
@@ -150,7 +145,8 @@ func deactivate() -> void:
 
 # ---------------------------------------------------------------- ПРИЦЕЛ
 
-## Точка прицела: клетка, мир-позиция и объект-привязка (если рядом).
+## Точка прицела: ghost-превью на поверхности под прицелом (рейкаст физики).
+## Возвращает: ok, cell, world (точка на поверхности), normal, reason, attach.
 func _aim_point() -> Dictionary:
 	var cam := kid.camera
 	var origin := cam.global_position
@@ -164,29 +160,49 @@ func _aim_point() -> Dictionary:
 		var along := to.dot(dir)
 		if along > 0.5 and along < RANGE + 4.0 and (to - dir * along).length() < 0.85:
 			return {"ok": true, "cell": ch_cell, "world": Defs.cell_to_world(ch_cell) + Vector3(0, 2.2, 0),
-				"attach": {"type": "chandelier", "cell": ch_cell}}
-	if dir.y > -0.05:
-		return {"ok": false, "cell": Vector2i(-99, -99), "world": Vector3.ZERO, "attach": {}}
-	var t := -origin.y / dir.y
-	var hit := origin + dir * t
-	if hit.distance_to(kid.global_position) > RANGE:
-		hit = kid.global_position + (hit - kid.global_position).limit_length(RANGE)
-	var cell := Defs.world_to_cell(hit)
-	var ok := house.is_inside(cell)
+				"normal": Vector3.UP, "reason": "", "attach": {"type": "chandelier", "cell": ch_cell}}
+	var space := kid.get_world_3d().direct_space_state
+	var query := PhysicsRayQueryParameters3D.create(origin, origin + dir * (RANGE + 3.0))
+	query.exclude = [kid.get_rid()]
+	var hit := space.intersect_ray(query)
+	if hit.is_empty():
+		return {"ok": false, "cell": Vector2i(-99, -99), "world": Vector3.ZERO,
+			"normal": Vector3.UP, "reason": "слишком далеко", "attach": {}}
+	var pos: Vector3 = hit["position"]
+	var normal: Vector3 = hit["normal"]
+	var cell := Defs.world_to_cell(pos)
+	var reason := ""
+	var ok := true
+	if pos.distance_to(kid.global_position) > RANGE:
+		ok = false
+		reason = "слишком далеко"
+	elif not house.is_inside(cell):
+		ok = false
+		reason = "целься внутрь дома"
+	elif normal.y < 0.6:
+		ok = false
+		reason = "нужна горизонтальная поверхность"
 	var attach: Dictionary = {}
-	var world := Vector3(hit.x, 0.15, hit.z)
+	var world := pos + normal * 0.02
 	if ok:
 		var lk := house.find_linkable(cell)
 		if not lk.is_empty():
 			attach = lk
+			# конец нити липнет к самому объекту (люстра/шкаф/ТВ)
 			var h := 2.2 if lk["type"] == "chandelier" else 1.2
 			world = Defs.cell_to_world(lk["cell"]) + Vector3(0, h, 0)
 		elif house.carpet_cells.has(cell):
 			attach = {"type": "rug", "cell": cell}
-	return {"ok": ok, "cell": cell, "world": world, "attach": attach}
+	return {"ok": ok, "cell": cell, "world": world, "normal": normal, "reason": reason, "attach": attach}
 
-func _cell_valid(cell: Vector2i) -> bool:
-	return house.is_free_cell(cell) and not match_node.traps.has(cell)
+func _cell_valid(aim: Dictionary) -> bool:
+	var cell: Vector2i = aim["cell"]
+	if match_node.traps.has(cell):
+		return false
+	if house.is_free_cell(cell):
+		return true
+	# на мебель можно, если попал в её ВЕРХНЮЮ поверхность
+	return house.furniture_cells.has(cell) and aim["world"].y > 0.25
 
 # ---------------------------------------------------------------- PROCESS
 
@@ -197,36 +213,11 @@ func _process(_delta: float) -> void:
 		_process_placing(_delta)
 		return
 	var aim := _aim_point()
-	_update_grid(aim["cell"])
 	var item := _current_item()
 	if item in ROPE_ITEMS:
 		_update_rope_preview(aim)
 	else:
 		_update_single_preview(item, aim)
-
-func _update_grid(cell: Vector2i) -> void:
-	var qi := 0
-	for dx in range(-GRID_N / 2, GRID_N / 2 + 1):
-		for dz in range(-GRID_N / 2, GRID_N / 2 + 1):
-			var c := cell + Vector2i(dx, dz)
-			var q: MeshInstance3D = grid_quads[qi]
-			qi += 1
-			if not house.is_inside(c):
-				q.visible = false
-				continue
-			q.visible = true
-			q.position = Vector3(c.x + 0.5, 0.045, c.y + 0.5)
-			var mat: StandardMaterial3D = q.material_override
-			if match_node.traps.has(c):
-				mat.albedo_color = Color(1.0, 0.45, 0.25, 0.3)
-			elif house.carpet_cells.has(c):
-				mat.albedo_color = Color(0.4, 0.7, 1.0, 0.2)
-			elif not house.is_free_cell(c):
-				mat.albedo_color = Color(0.5, 0.5, 0.5, 0.12)
-			elif not house.find_linkable(c).is_empty():
-				mat.albedo_color = Color(1.0, 0.8, 0.3, 0.17)
-			else:
-				mat.albedo_color = Color(1, 1, 1, 0.08)
 
 # ---------------------------------------------------------------- ОБЫЧНАЯ ЛОВУШКА
 
@@ -235,9 +226,9 @@ func _update_single_preview(item: String, aim: Dictionary) -> void:
 	anchor_mk.visible = false
 	var cell: Vector2i = aim["cell"]
 	var v := _variant_for(item, cell)
-	var ok: bool = aim["ok"] and _cell_valid(cell) and not v.is_empty()
-	ghost.visible = aim["ok"]
-	ghost.position = Vector3(cell.x + 0.5, 0.04, cell.y + 0.5)
+	var ok: bool = aim["ok"] and _cell_valid(aim) and not v.is_empty()
+	ghost.visible = aim["cell"] != Vector2i(-99, -99)
+	ghost.position = aim["world"] if ghost.visible else Vector3.ZERO
 	var gmat: StandardMaterial3D = ghost.material_override
 	gmat.albedo_color = Color(0.3, 1.0, 0.4, 0.4) if ok else Color(1.0, 0.3, 0.3, 0.35)
 	if ok:
@@ -246,18 +237,25 @@ func _update_single_preview(item: String, aim: Dictionary) -> void:
 		var sub := fx
 		if v.get("hidden", false):
 			sub += "  · под ковром" if sub == "" else "  ·  под ковром"
+		if aim["world"].y > 0.3:
+			sub += "  · на мебели" if sub == "" else "  ·  на мебели"
 		match_node.hud.show_context(Defs.ITEMS[item]["name"] + extra, sub, true)
 	else:
-		match_node.hud.show_context("Сюда нельзя", "цель в свободный пол", false)
+		var why: String = aim["reason"]
+		if why == "" and aim["ok"]:
+			why = "здесь уже стоит ловушка" if match_node.traps.has(cell) else "не сюда"
+		elif why == "" and v.is_empty():
+			why = "этому предмету тут не место"
+		match_node.hud.show_context("Сюда нельзя", why, false)
 
 func _place_single(item: String) -> void:
 	var aim := _aim_point()
 	var cell: Vector2i = aim["cell"]
 	var v := _variant_for(item, cell)
-	if not (aim["ok"] and _cell_valid(cell)) or v.is_empty():
-		match_node.hud.show_message("Сюда не поставить", Color(1, 0.6, 0.5))
+	if not (aim["ok"] and _cell_valid(aim)) or v.is_empty():
+		match_node.hud.show_message("Сюда не поставить: %s" % str(aim.get("reason", "")), Color(1, 0.6, 0.5))
 		return
-	_begin_place(v["trap_id"], item, cell, v.get("link", {}), v.get("hidden", false), {})
+	_begin_place(v["trap_id"], item, cell, v.get("link", {}), v.get("hidden", false), {}, aim["world"])
 
 # ---------------------------------------------------------------- РАСТЯЖКА (2 точки)
 
@@ -291,7 +289,7 @@ func _rope_click() -> void:
 			break
 	place_wire = {"a": a["world"], "b": b["world"]}
 	rope_anchor = {}
-	_begin_place(trap_id, "rope", mid_cell, link, false, place_wire)
+	_begin_place(trap_id, "rope", mid_cell, link, false, place_wire, Defs.cell_to_world(mid_cell))
 
 func _update_rope_preview(aim: Dictionary) -> void:
 	ghost.visible = false
@@ -381,9 +379,10 @@ func _link_name(lk: Dictionary) -> String:
 
 # ---------------------------------------------------------------- УСТАНОВКА + QTE
 
-func _begin_place(trap_id: String, item_id: String, cell: Vector2i, link: Dictionary, hidden: bool, wire: Dictionary) -> void:
+func _begin_place(trap_id: String, item_id: String, cell: Vector2i, link: Dictionary, hidden: bool, wire: Dictionary, pos: Vector3) -> void:
 	placing = true
 	place_cell = cell
+	place_pos = pos
 	place_trap_id = trap_id
 	place_item_id = item_id
 	place_hidden = hidden
@@ -406,9 +405,9 @@ func _begin_place(trap_id: String, item_id: String, cell: Vector2i, link: Dictio
 func _update_qte_title() -> void:
 	var nm: String = Defs.TRAPS[place_trap_id]["name"]
 	if place_link.is_empty():
-		match_node.hud.show_qte(nm)
+		match_node.hud.show_qte("Ставим: " + nm)
 	else:
-		match_node.hud.show_qte("%s · задержка %.1fс (колесо!)" % [nm, float(Defs.LINK_DELAYS[delay_i])])
+		match_node.hud.show_qte("Ставим: %s · задержка %.1fс (колесо!)" % [nm, float(Defs.LINK_DELAYS[delay_i])])
 
 func _cancel_place() -> void:
 	placing = false
@@ -429,7 +428,7 @@ func _process_placing(delta: float) -> void:
 		kid.cancel_place_anim()
 		match_node.hud.hide_qte()
 		var q := qte_quality if qte_quality > 0.0 else randf_range(0.6, 0.85)
-		var opts := {}
+		var opts := {"pos": place_pos}
 		if not place_link.is_empty():
 			opts["link"] = place_link
 			opts["delay"] = float(Defs.LINK_DELAYS[delay_i])
@@ -496,17 +495,6 @@ func _orient_along(node: MeshInstance3D, a: Vector3, b: Vector3, col: Color) -> 
 	var zd := xd.cross(yd)
 	node.transform = Transform3D(Basis(xd, yd * l, zd), mid)
 	_mark_color(node, col)
-
-func _make_grid() -> void:
-	for i in GRID_N * GRID_N:
-		var q := MeshInstance3D.new()
-		var pm := PlaneMesh.new()
-		pm.size = Vector2(0.9, 0.9)
-		q.mesh = pm
-		q.material_override = _unshaded(Color(1, 1, 1, 0.06))
-		q.visible = false
-		match_node.add_child(q)
-		grid_quads.append(q)
 
 func _make_hints() -> void:
 	for cell in house.chandeliers:

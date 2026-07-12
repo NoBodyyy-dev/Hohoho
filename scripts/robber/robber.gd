@@ -1,51 +1,50 @@
-class_name Santa
+class_name Robber
 extends CharacterBody3D
-## Санта — игрок от первого лица (база будущего контроллера грабителя).
-## Цель: занести подарки и свалить. Ловушки его замедляют/оглушают/сбивают с ног.
-## Бота нет: за эту сторону всегда играет человек.
+## Грабитель — игрок от первого лица. Цель: обыскать мебель, найти драгоценности
+## и вынести их из дома до приезда полиции. Ловушки мелких его замедляют,
+## оглушают, ослепляют и сбивают с ног. Бота нет — только живой игрок.
 
-signal delivered(spot: Vector2i)
-signal escaped
-signal sacked_kid(kid: Kid)
-signal hoho_used
-signal present_sense_used
+signal jewel_grabbed              # достал драгоценность из мебели
+signal jewel_deposited            # вынес за периметр
+signal tied_kid(kid: Kid)
+signal roar_used
+signal loot_sense_used
 
 const BASE_SPEED := 4.6
 const GRAVITY := 20.0
-const PLACE_TIME := 2.6
 
 var player_controlled := false
 var house: HouseBuilder
+var match_ref: Node               # Match — обыск/связывание идут через него
 
 var stun_t := 0.0
 var slow_mult := 1.0
 var slow_t := 0.0
-var place_t := 0.0
-var sack_cd := 0.0
 var capture_mult := 1.0
 var enraged := false
+var carrying := 0                 # драгоценностей на руках (макс 1)
+var stolen := 0                   # лично вынес
 
 # статус-эффекты
-var dizzy_t := 0.0          # головокружение: виляет, не может сажать в мешок
+var dizzy_t := 0.0          # головокружение: шатает, не может вязать
 var wet_t := 0.0            # мокрый: шокер бьёт вдвое сильнее (скрытое комбо)
 var knock_vel := Vector3.ZERO
 var knock_t := 0.0          # неуправляемый полёт/скольжение (банан, шарики)
 
-var danger: Dictionary = {}
-var known_traps: Dictionary = {}
 var walk_t := 0.0
-
-var spots_left: Array = []
 var blocked_entries: Dictionary = {}
 var chosen_entry := 0
+
+# интеракция удержанием E: {type: "search"/"tie"/"break", node/kid/entry, t, total}
+var action: Dictionary = {}
 
 var model: Node3D
 var kids_ref: Array = []
 var rage_light: OmniLight3D
 var stars: Node3D
 var sense_cd := 0.0
-var hoho_cd := 0.0
-var psense_cd := 0.0   # «чуйка на подарки» (F) — примерные места доставки
+var roar_cd := 0.0
+var loot_cd := 0.0
 
 # управление игроком (от первого лица)
 var yaw := 0.0
@@ -53,10 +52,11 @@ var pitch := 0.0
 var eyes: Node3D
 var camera: Camera3D
 
-func setup(p_house: HouseBuilder, p_player_controlled: bool) -> void:
+func setup(p_house: HouseBuilder, p_player_controlled: bool, p_match: Node) -> void:
 	house = p_house
 	player_controlled = p_player_controlled
-	add_to_group("santa")
+	match_ref = p_match
+	add_to_group("robbers")
 	collision_layer = 5
 	collision_mask = 1
 
@@ -71,7 +71,6 @@ func setup(p_house: HouseBuilder, p_player_controlled: bool) -> void:
 	model = Minifig.build_santa()
 	add_child(model)
 
-	spots_left = house.present_spots.duplicate()
 	chosen_entry = randi() % house.entries.size()
 	var e: Dictionary = house.entries[chosen_entry]
 	var outer: Vector2i = e["cell"] + e["out_dir"]
@@ -88,11 +87,7 @@ func setup(p_house: HouseBuilder, p_player_controlled: bool) -> void:
 		eyes.add_child(camera)
 		camera.current = true
 
-## Фаза Санты началась. Без игрока за Санту фигурка просто стоит у входа.
-func go() -> void:
-	pass
-
-## Последняя минута: Санта звереет — быстрее, замедления слабее.
+## Последняя минута: грабитель наглеет — быстрее, замедления слабее.
 func enrage() -> void:
 	if enraged:
 		return
@@ -104,6 +99,9 @@ func enrage() -> void:
 	rage_light.position = Vector3(0, 1.5, 0)
 	add_child(rage_light)
 
+func is_inside_house() -> bool:
+	return house.is_inside(Defs.world_to_cell(global_position))
+
 # ================================================================ ЭФФЕКТЫ ЛОВУШЕК
 
 func apply_trap_effect(stun: float, slow: float, slow_dur: float, _scare: bool, p_capture_mult: float, extra: Dictionary = {}) -> void:
@@ -113,15 +111,13 @@ func apply_trap_effect(stun: float, slow: float, slow_dur: float, _scare: bool, 
 		slow_mult = maxf(slow, 0.65) if enraged else slow
 		slow_t = maxf(slow_t, slow_dur)
 	capture_mult = maxf(p_capture_mult, 1.0)
+	_cancel_action()
 	_flash(Color(1, 0.4, 0.2))
-	# --- статус-эффекты
 	if float(extra.get("dizzy", 0.0)) > 0.0:
 		dizzy_t = maxf(dizzy_t, float(extra["dizzy"]))
 	if extra.get("wet", false):
 		wet_t = Defs.WET_DURATION
 		_flash(Color(0.4, 0.6, 1.0))
-	if extra.get("disorient", false):
-		_disorient()
 	var knock := float(extra.get("knock", 0.0))
 	if absf(knock) > 0.01:
 		var dir := Vector3(velocity.x, 0, velocity.z)
@@ -131,11 +127,6 @@ func apply_trap_effect(stun: float, slow: float, slow_dur: float, _scare: bool, 
 		knock_vel = dir * absf(knock) * 1.9
 		knock_t = 0.55
 		stun_t = maxf(stun_t, 0.01)  # прерываем текущее действие
-
-## Дезориентация: Санта «забывает» всё, что приметил.
-func _disorient() -> void:
-	known_traps.clear()
-	danger.clear()
 
 func is_dizzy() -> bool:
 	return dizzy_t > 0.0
@@ -154,10 +145,9 @@ func _flash(c: Color) -> void:
 # ================================================================ ФИЗИКА
 
 func _physics_process(delta: float) -> void:
-	sack_cd = maxf(sack_cd - delta, 0.0)
 	sense_cd = maxf(sense_cd - delta, 0.0)
-	hoho_cd = maxf(hoho_cd - delta, 0.0)
-	psense_cd = maxf(psense_cd - delta, 0.0)
+	roar_cd = maxf(roar_cd - delta, 0.0)
+	loot_cd = maxf(loot_cd - delta, 0.0)
 	dizzy_t = maxf(dizzy_t - delta, 0.0)
 	wet_t = maxf(wet_t - delta, 0.0)
 	if slow_t > 0.0:
@@ -165,7 +155,7 @@ func _physics_process(delta: float) -> void:
 		if slow_t <= 0.0:
 			slow_mult = 1.0
 			capture_mult = 1.0
-	# неуправляемый полёт от банана/шариков: контроля нет, ловушки по пути срабатывают
+	# неуправляемый полёт от банана/шариков
 	if knock_t > 0.0:
 		knock_t -= delta
 		velocity.x = knock_vel.x
@@ -178,13 +168,12 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		if knock_t <= 0.0:
 			model.rotation.x = 0.0
-			stun_t = maxf(stun_t, 1.0)  # шлёпнулся — встаёт
+			stun_t = maxf(stun_t, 1.0)
 		return
 	if stun_t > 0.0:
 		stun_t -= delta
 		velocity.x = 0
 		velocity.z = 0
-		# трясётся в ловушке, над головой кружат звёздочки
 		model.rotation.z = sin(Time.get_ticks_msec() * 0.03) * 0.06
 		_update_stars(delta, true)
 		if not is_on_floor():
@@ -234,6 +223,8 @@ func current_speed() -> float:
 		s *= 1.3
 	if dizzy_t > 0.0:
 		s *= 0.85
+	if carrying > 0:
+		s *= 0.9   # с добычей чуть медленнее
 	return s
 
 # ================================================================ ИГРОК (FP)
@@ -247,46 +238,48 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ability1") and sense_cd <= 0.0:
 		sense_cd = Defs.SANTA_SENSE_CD
 		_use_sense()
-	if event.is_action_pressed("ability2") and hoho_cd <= 0.0:
-		hoho_cd = Defs.SANTA_HOHO_CD
-		_use_hoho()
-	if event.is_action_pressed("trap_mode") and psense_cd <= 0.0:
-		psense_cd = Defs.SANTA_PSENSE_CD
-		present_sense_used.emit()
+	if event.is_action_pressed("ability2") and roar_cd <= 0.0:
+		roar_cd = Defs.SANTA_HOHO_CD
+		_use_roar()
+	if event.is_action_pressed("trap_mode") and loot_cd <= 0.0:
+		loot_cd = Defs.SANTA_PSENSE_CD
+		loot_sense_used.emit()
 
-## Q — «чуйка»: подсветить все ловушки рядом.
+## Q — «глаз-алмаз»: подсветить все ловушки рядом.
 func _use_sense() -> void:
 	for trap in get_tree().get_nodes_in_group("traps"):
 		if not trap.spent and global_position.distance_to(trap.global_position) < Defs.SANTA_SENSE_RANGE:
 			trap.reveal()
 
-## R — «ХО-ХО-ХО»: пугает пацанов рядом, сбивает им установку ловушек.
-func _use_hoho() -> void:
+## R — рык: пугает пацанов рядом, сбивает им установку ловушек.
+func _use_roar() -> void:
 	var tw := model.create_tween()
 	tw.tween_property(model, "scale", Vector3(1.12, 1.12, 1.12), 0.15)
 	tw.tween_property(model, "scale", Vector3.ONE, 0.25)
-	hoho_used.emit()
+	roar_used.emit()
 
 func _player_move(delta: float) -> void:
 	var roll := sin(Time.get_ticks_msec() * 0.005) * 0.09 if dizzy_t > 0.0 else 0.0
 	eyes.rotation = Vector3(pitch, yaw, roll)
 	model.rotation.y = yaw + PI
+	# удержание E — обыск/связывание/взлом окна (через Match)
 	if Input.is_action_pressed("interact"):
-		var near := _near_spot()
-		if near != Vector2i(-99, -99):
-			place_t += delta
+		if action.is_empty():
+			action = match_ref.robber_action_at(self)
+		if not action.is_empty():
+			action["t"] += delta
+			match_ref.hud.update_qte(action["t"] / action["total"], -1.0, false)
 			velocity.x = 0
 			velocity.z = 0
 			move_and_slide()
-			if place_t >= PLACE_TIME:
-				place_t = 0.0
-				spots_left.erase(near)
-				delivered.emit(near)
-				if spots_left.is_empty():
-					escaped.emit()
+			if action["t"] >= action["total"]:
+				var done: Dictionary = action
+				action = {}
+				match_ref.hud.hide_qte()
+				match_ref.robber_action_done(self, done)
 			return
 	else:
-		place_t = 0.0
+		_cancel_action()
 	var input_dir := Input.get_vector("move_left", "move_right", "move_fwd", "move_back")
 	var dir := (Basis(Vector3.UP, yaw) * Vector3(input_dir.x, 0, input_dir.y)).normalized()
 	var spd := current_speed() * (1.3 if Input.is_action_pressed("sprint") else 1.0)
@@ -296,11 +289,8 @@ func _player_move(delta: float) -> void:
 		velocity.y -= GRAVITY * delta
 	move_and_slide()
 
-func _near_spot() -> Vector2i:
-	for s in spots_left:
-		if global_position.distance_to(Defs.cell_to_world(s)) < 1.2:
-			return s
-	return Vector2i(-99, -99)
-
-func place_progress() -> float:
-	return clampf(place_t / PLACE_TIME, 0.0, 1.0)
+func _cancel_action() -> void:
+	if not action.is_empty():
+		action = {}
+		if match_ref != null and match_ref.hud != null:
+			match_ref.hud.hide_qte()
