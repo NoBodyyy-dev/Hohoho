@@ -164,12 +164,13 @@ func _build_floors() -> void:
 		var pos := Vector3(rect.position.x + rect.size.x * 0.5, -0.1, rect.position.y + rect.size.y * 0.5)
 		var fmat: Material = Defs.plaster_mat(r["floor"]) if r["tag"] == "плитка" else Defs.wood_mat(r["floor"])
 		_add_static_mat(root, size, pos, fmat)
-		# тёплый свет в каждой комнате
+		# тёплый свет в каждой комнате — ярче для чистой читаемой картинки
 		var l := OmniLight3D.new()
-		l.light_color = Color(1.0, 0.93, 0.82)
-		l.light_energy = 0.95
-		l.omni_range = maxf(rect.size.x, rect.size.y) * 1.1
-		l.position = Vector3(pos.x, 2.5, pos.z)
+		l.light_color = Color(1.0, 0.94, 0.84)
+		l.light_energy = 1.5
+		l.omni_range = maxf(rect.size.x, rect.size.y) * 1.25
+		l.omni_attenuation = 0.8
+		l.position = Vector3(pos.x, 2.6, pos.z)
 		root.add_child(l)
 	for rect in loc["carpets"]:
 		var cnode := Node3D.new()
@@ -1031,38 +1032,15 @@ static func build_night_env(parent: Node) -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.8
-	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.glow_enabled = true
-	env.glow_intensity = 0.55
-	env.glow_bloom = 0.08
-	# глобальное освещение — мягкие переотражения света, как в We Were Here
-	env.sdfgi_enabled = true
-	env.sdfgi_use_occlusion = true
-	env.sdfgi_min_cell_size = 0.15
-	env.sdfgi_energy = 1.1
-	# затенение в углах и под мебелью — «объём» картинки
-	env.ssao_enabled = true
-	env.ssao_intensity = 2.2
-	env.ssao_radius = 1.5
-	env.ssil_enabled = true
-	env.ssil_intensity = 1.2
-	# объёмный туман: свет свечей и луны становится «густым»
-	env.volumetric_fog_enabled = true
-	env.volumetric_fog_density = 0.012
-	env.volumetric_fog_albedo = Color(0.75, 0.78, 0.95)
-	env.volumetric_fog_gi_inject = 0.6
-	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.18
-	env.adjustment_contrast = 1.05
+	# чистый мультяшный стиль (вайб Meccha Chameleon): тепло, светло, читаемо
+	PostFX.apply_clean_env(env)
 	var we := WorldEnvironment.new()
 	we.environment = env
 	parent.add_child(we)
 	var moon := DirectionalLight3D.new()
-	moon.light_color = Color(0.62, 0.72, 1.0)
-	moon.light_energy = 0.55
+	moon.light_color = Color(0.78, 0.82, 1.0)
+	moon.light_energy = 0.7
 	moon.shadow_enabled = true
-	moon.light_volumetric_fog_energy = 0.6
 	moon.rotation_degrees = Vector3(-50, 35, 0)
 	parent.add_child(moon)
 	# луна

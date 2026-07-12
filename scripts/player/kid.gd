@@ -77,6 +77,7 @@ func setup(p_char_id: String) -> void:
 	camera.near = 0.05
 	eyes.add_child(camera)
 	camera.current = true
+	PostFX.attach_outline(camera)
 
 	_build_hands()
 
