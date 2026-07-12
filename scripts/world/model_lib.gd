@@ -6,13 +6,19 @@ extends RefCounted
 
 const FURN := "res://assets/kenney/furniture/"
 const HOLI := "res://assets/kenney/holiday/"
+const CUSTOM := "res://assets/custom/"   # наши модели под стиль Meccha (GLB)
 
 static var _cache: Dictionary = {}
 
 ## Пути моделей по логическому id.
+##   "h:foo"  → holiday/foo.glb
+##   "c:foo"  → custom/foo.glb (сгенерённые нейронкой под наш стиль)
+##   "foo"    → furniture/foo.glb
 static func _path(id: String) -> String:
 	if id.begins_with("h:"):
 		return HOLI + id.substr(2) + ".glb"
+	if id.begins_with("c:"):
+		return CUSTOM + id.substr(2) + ".glb"
 	return FURN + id + ".glb"
 
 static func scene(id: String) -> PackedScene:
