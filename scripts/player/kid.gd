@@ -22,6 +22,12 @@ var sack_mash := 0
 var tank_escape_left := 0
 var match_ref: Node          # Match — обыск мебели и окна через него
 var action: Dictionary = {}  # текущее удержание E: {type, t, total, ...}
+var trap_stun_t := 0.0       # оглушение от СВОЕЙ ЖЕ командной ловушки
+
+## Дружеский огонь: чужая ловушка оглушает мелкого.
+func hit_by_trap(stun: float) -> void:
+	trap_stun_t = maxf(trap_stun_t, stun)
+	action = {}
 
 var yaw := 0.0
 var pitch := 0.0
@@ -110,6 +116,18 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
 	eyes.rotation = Vector3(pitch, yaw, 0)
 	model.rotation.y = yaw + PI
+	if trap_stun_t > 0.0:
+		trap_stun_t -= delta
+		# трясёт в собственной ловушке
+		camera.rotation.z = sin(Time.get_ticks_msec() * 0.03) * 0.04
+		velocity.x = 0
+		velocity.z = 0
+		if not is_on_floor():
+			velocity.y -= GRAVITY * delta
+		move_and_slide()
+		if trap_stun_t <= 0.0:
+			camera.rotation.z = 0.0
+		return
 	if frozen or is_sacked:
 		velocity.x = 0
 		velocity.z = 0

@@ -365,8 +365,20 @@ func _update_capture(delta: float) -> void:
 
 # ---------------------------------------------------------------- ЛОВУШКИ
 
+## Сколько ловушек сейчас активно (бюджет против спама).
+func active_trap_count() -> int:
+	var n := 0
+	for c in traps:
+		var t = traps[c]
+		if is_instance_valid(t) and not t.spent:
+			n += 1
+	return n
+
 func place_trap(trap_id: String, item_id: String, cell: Vector2i, quality: float, hidden: bool, opts: Dictionary = {}) -> void:
 	if traps.has(cell) or int(loadout.get(item_id, 0)) <= 0:
+		return
+	if active_trap_count() >= Defs.TRAP_BUDGET:
+		hud.show_message("Лимит ловушек (%d)! Сними или дождись срабатывания." % Defs.TRAP_BUDGET, Color(1, 0.6, 0.5))
 		return
 	loadout[item_id] = int(loadout[item_id]) - 1
 	hud.set_pockets(loadout)
@@ -380,6 +392,8 @@ func place_trap(trap_id: String, item_id: String, cell: Vector2i, quality: float
 	var trap := Trap.new()
 	add_child(trap)
 	trap.add_to_group("traps")
+	if kid != null and not opts.has("placer"):
+		opts["placer"] = kid
 	trap.setup(trap_id, cell, quality, hidden, kid.vis_mult if kid != null else 1.0, opts)
 	if trap_id == "rope_chandelier":
 		trap.chandelier = house.chandeliers.get(cell)
@@ -396,7 +410,16 @@ func place_trap(trap_id: String, item_id: String, cell: Vector2i, quality: float
 				robber.blocked_entries[i] = true
 		hud.show_message("Дымоход заблокирован!", Color(1, 0.8, 0.4))
 
-func _on_trap_triggered(trap: Trap) -> void:
+func _on_trap_triggered(trap: Trap, body: Node3D) -> void:
+	# ДРУЖЕСКИЙ ОГОНЬ: мелкий влетел в чужую ловушку — эффект на него, без стиля
+	if body != null and body.is_in_group("kids"):
+		body.hit_by_trap(float(trap.def["stun"]) * 0.7 + 1.0)
+		_trigger_fx(trap)
+		if not trap.link.is_empty():
+			_fire_linked(trap)
+		hud.big_announce("СВОЯ ЖЕ ЛОВУШКА!", Color(1, 0.7, 0.3))
+		hud.show_message("Кто-то из мелких влетел в %s. Классика." % trap.def["name"], Color(1, 0.8, 0.5))
+		return
 	trap.apply_to(robber)
 	_trigger_fx(trap)
 	_chain_from(trap)

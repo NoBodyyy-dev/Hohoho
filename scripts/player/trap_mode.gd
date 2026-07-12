@@ -31,6 +31,7 @@ var place_item_id := ""
 var place_hidden := false
 var place_cell := Vector2i(-99, -99)
 var place_pos := Vector3.ZERO
+var place_normal := Vector3.UP
 var place_link: Dictionary = {}
 var place_wire: Dictionary = {}
 var place_t := 0.0
@@ -74,6 +75,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				elif not rope_anchor.is_empty():
 					rope_anchor = {}
 					match_node.hud.show_message("Растяжка отменена", Color(1, 0.8, 0.6))
+				elif wire_from_trap != null:
+					wire_from_trap = null
+					match_node.hud.show_message("Провод смотан обратно", Color(1, 0.8, 0.6))
 	if event.is_action_pressed("jump") and placing and not qte_locked:
 		qte_locked = true
 		qte_quality = 0.6 + 0.4 * (1.0 - absf(qte_value - 0.5) * 2.0)
@@ -87,14 +91,21 @@ func _on_click() -> void:
 		return
 	if item in ROPE_ITEMS:
 		_rope_click()
+	elif item == "wire":
+		_wire_click()
 	else:
 		_place_single(item)
+
+## Подходит ли поверхность предмету: пол/столешница — всем, стены/потолок — списку.
+func _surface_ok(item: String, aim: Dictionary) -> bool:
+	return aim["normal"].y >= 0.6 or item in Defs.ANY_SURFACE
 
 func _select(idx: int) -> void:
 	if items.is_empty():
 		return
 	sel_i = clampi(idx, 0, items.size() - 1)
 	rope_anchor = {}
+	wire_from_trap = null
 	match_node.hud.set_hotbar_sel(sel_i)
 	kid.set_held(_current_item())
 
@@ -131,6 +142,7 @@ func deactivate() -> void:
 		_cancel_place()
 	active = false
 	rope_anchor = {}
+	wire_from_trap = null
 	for h in hint_nodes:
 		if is_instance_valid(h):
 			h.queue_free()
@@ -179,9 +191,6 @@ func _aim_point() -> Dictionary:
 	elif not house.is_inside(cell):
 		ok = false
 		reason = "целься внутрь дома"
-	elif normal.y < 0.6:
-		ok = false
-		reason = "нужна горизонтальная поверхность"
 	var attach: Dictionary = {}
 	var world := pos + normal * 0.02
 	if ok:
@@ -216,6 +225,8 @@ func _process(_delta: float) -> void:
 	var item := _current_item()
 	if item in ROPE_ITEMS:
 		_update_rope_preview(aim)
+	elif item == "wire":
+		_update_wire_link_preview(aim)
 	else:
 		_update_single_preview(item, aim)
 
@@ -226,9 +237,10 @@ func _update_single_preview(item: String, aim: Dictionary) -> void:
 	anchor_mk.visible = false
 	var cell: Vector2i = aim["cell"]
 	var v := _variant_for(item, cell)
-	var ok: bool = aim["ok"] and _cell_valid(aim) and not v.is_empty()
+	var ok: bool = aim["ok"] and _cell_valid(aim) and _surface_ok(item, aim) and not v.is_empty()
 	ghost.visible = aim["cell"] != Vector2i(-99, -99)
 	ghost.position = aim["world"] if ghost.visible else Vector3.ZERO
+	_align_to_normal(ghost, aim["normal"])
 	var gmat: StandardMaterial3D = ghost.material_override
 	gmat.albedo_color = Color(0.3, 1.0, 0.4, 0.4) if ok else Color(1.0, 0.3, 0.3, 0.35)
 	if ok:
@@ -237,25 +249,117 @@ func _update_single_preview(item: String, aim: Dictionary) -> void:
 		var sub := fx
 		if v.get("hidden", false):
 			sub += "  · под ковром" if sub == "" else "  ·  под ковром"
-		if aim["world"].y > 0.3:
+		if aim["normal"].y < 0.6:
+			sub += "  · на стене/потолке" if sub == "" else "  ·  на стене/потолке"
+		elif aim["world"].y > 0.3:
 			sub += "  · на мебели" if sub == "" else "  ·  на мебели"
 		match_node.hud.show_context(Defs.ITEMS[item]["name"] + extra, sub, true)
 	else:
 		var why: String = aim["reason"]
-		if why == "" and aim["ok"]:
+		if why == "" and not _surface_ok(item, aim):
+			why = "этот предмет — только на горизонтальное"
+		elif why == "" and aim["ok"]:
 			why = "здесь уже стоит ловушка" if match_node.traps.has(cell) else "не сюда"
 		elif why == "" and v.is_empty():
 			why = "этому предмету тут не место"
 		match_node.hud.show_context("Сюда нельзя", why, false)
 
+func _align_to_normal(node: Node3D, normal: Vector3) -> void:
+	if normal.y >= 0.9:
+		node.basis = Basis.IDENTITY
+		return
+	var x := normal.cross(Vector3.UP)
+	if x.length() < 0.01:
+		x = Vector3.RIGHT
+	x = x.normalized()
+	node.basis = Basis(x, normal, x.cross(normal))
+
 func _place_single(item: String) -> void:
 	var aim := _aim_point()
 	var cell: Vector2i = aim["cell"]
 	var v := _variant_for(item, cell)
-	if not (aim["ok"] and _cell_valid(aim)) or v.is_empty():
-		match_node.hud.show_message("Сюда не поставить: %s" % str(aim.get("reason", "")), Color(1, 0.6, 0.5))
+	if not (aim["ok"] and _cell_valid(aim) and _surface_ok(item, aim)) or v.is_empty():
+		var why: String = str(aim.get("reason", ""))
+		if why == "" and not _surface_ok(item, aim):
+			why = "этот предмет — только на горизонтальное"
+		match_node.hud.show_message("Сюда не поставить: %s" % why, Color(1, 0.6, 0.5))
 		return
-	_begin_place(v["trap_id"], item, cell, v.get("link", {}), v.get("hidden", false), {}, aim["world"])
+	_begin_place(v["trap_id"], item, cell, v.get("link", {}), v.get("hidden", false), {}, aim["world"], aim["normal"])
+
+# ---------------------------------------------------------------- ПРОВОД (связь на расстоянии)
+
+var wire_from_trap: Trap = null
+
+## ЛКМ с проводом: клик 1 — своя ловушка, клик 2 — люстра/шкаф/ТВ/ковёр.
+func _wire_click() -> void:
+	var aim := _aim_point()
+	if wire_from_trap == null:
+		var t := _trap_near(aim["world"])
+		if t == null:
+			match_node.hud.show_message("Целься в СВОЮ ловушку — провод начинается с неё", Color(1, 0.7, 0.5))
+			return
+		if not t.link.is_empty():
+			match_node.hud.show_message("К этой ловушке уже подключён провод", Color(1, 0.7, 0.5))
+			return
+		wire_from_trap = t
+		match_node.hud.show_message("Провод подключён! Теперь кликни на люстру/шкаф/ТВ/ковёр.", Color(0.7, 1, 0.8))
+		return
+	var attach: Dictionary = aim["attach"]
+	if attach.is_empty():
+		match_node.hud.show_message("Второй конец — в люстру, шкаф, ТВ или ковёр", Color(1, 0.7, 0.5))
+		return
+	var target := Defs.cell_to_world(attach["cell"])
+	if wire_from_trap.global_position.distance_to(target) > Defs.WIRE_MAX_LEN:
+		match_node.hud.show_message("Провод не дотягивается (макс. %d м)" % int(Defs.WIRE_MAX_LEN), Color(1, 0.6, 0.5))
+		return
+	match_node.loadout["wire"] = int(match_node.loadout["wire"]) - 1
+	match_node.hud.set_pockets(match_node.loadout)
+	wire_from_trap.attach_link(attach, float(Defs.LINK_DELAYS[delay_i]))
+	match_node.hud.show_message("СВЯЗКА ГОТОВА: %s → %s (задержка %.1fс, колесо при установке меняет)" %
+		[wire_from_trap.def["name"], _link_name(attach), float(Defs.LINK_DELAYS[delay_i])], Color(0.55, 1.0, 0.9))
+	wire_from_trap = null
+
+func _trap_near(pos: Vector3) -> Trap:
+	var best: Trap = null
+	var best_d := 0.9
+	for t in match_node.traps.values():
+		if not is_instance_valid(t) or t.spent:
+			continue
+		var d: float = t.global_position.distance_to(pos)
+		if d < best_d:
+			best_d = d
+			best = t
+	return best
+
+func _update_wire_link_preview(aim: Dictionary) -> void:
+	ghost.visible = false
+	if wire_from_trap != null and not is_instance_valid(wire_from_trap):
+		wire_from_trap = null
+	if wire_from_trap == null:
+		wire_prev.visible = false
+		var t := _trap_near(aim["world"])
+		anchor_mk.visible = t != null
+		if t != null:
+			anchor_mk.position = t.global_position + Vector3(0, 0.25, 0)
+			_mark_color(anchor_mk, Color(0.4, 1, 0.5))
+			match_node.hud.show_context("Провод — ЛКМ: подключить к «%s»" % t.def["name"],
+				"потом кликни на люстру/шкаф/ТВ/ковёр — сработает на расстоянии", true)
+		else:
+			match_node.hud.show_context("Провод — целься в свою ловушку",
+				"он свяжет её с люстрой/шкафом/ТВ/ковром где угодно", false)
+		return
+	anchor_mk.visible = true
+	anchor_mk.position = wire_from_trap.global_position + Vector3(0, 0.25, 0)
+	_mark_color(anchor_mk, Color(1, 0.85, 0.4))
+	var attach: Dictionary = aim["attach"]
+	var col := Color(1.0, 0.82, 0.4) if not attach.is_empty() else Color(1, 0.35, 0.35)
+	wire_prev.visible = true
+	_orient_along(wire_prev, wire_from_trap.global_position + Vector3(0, 0.2, 0), aim["world"], col)
+	if not attach.is_empty():
+		match_node.hud.show_context("Подключить: " + _link_name(attach) + "!",
+			"клик — и связка на расстоянии готова", true)
+	else:
+		match_node.hud.show_context("Тяни провод к люстре/шкафу/ТВ/ковру", "", false)
 
 # ---------------------------------------------------------------- РАСТЯЖКА (2 точки)
 
@@ -379,10 +483,11 @@ func _link_name(lk: Dictionary) -> String:
 
 # ---------------------------------------------------------------- УСТАНОВКА + QTE
 
-func _begin_place(trap_id: String, item_id: String, cell: Vector2i, link: Dictionary, hidden: bool, wire: Dictionary, pos: Vector3) -> void:
+func _begin_place(trap_id: String, item_id: String, cell: Vector2i, link: Dictionary, hidden: bool, wire: Dictionary, pos: Vector3, normal := Vector3.UP) -> void:
 	placing = true
 	place_cell = cell
 	place_pos = pos
+	place_normal = normal
 	place_trap_id = trap_id
 	place_item_id = item_id
 	place_hidden = hidden
@@ -428,7 +533,7 @@ func _process_placing(delta: float) -> void:
 		kid.cancel_place_anim()
 		match_node.hud.hide_qte()
 		var q := qte_quality if qte_quality > 0.0 else randf_range(0.6, 0.85)
-		var opts := {"pos": place_pos}
+		var opts := {"pos": place_pos, "normal": place_normal}
 		if not place_link.is_empty():
 			opts["link"] = place_link
 			opts["delay"] = float(Defs.LINK_DELAYS[delay_i])

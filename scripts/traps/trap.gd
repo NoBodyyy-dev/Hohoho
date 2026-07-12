@@ -2,20 +2,21 @@ class_name Trap
 extends Node3D
 ## Установленная ловушка на клетке. Area3D ловит Санту, эффект берётся из Defs.TRAPS.
 
-signal triggered(trap: Trap)
+signal triggered(trap: Trap, body: Node3D)
 
 var trap_id: String
 var def: Dictionary
 var cell: Vector2i
 var quality := 1.0          # 0.6..1.0 от QTE при установке; <0.75 — шанс осечки
 var hidden := false         # под ковром
-var visibility := 0.5       # итоговая заметность для Санты
+var visibility := 0.5       # итоговая заметность для грабителя
 var spent := false
 var chandelier: Node3D = null  # для rope_chandelier
 var retrigger_cd := 0.0
 var link: Dictionary = {}      # {"type": "chandelier"/"shelf", "cell": Vector2i, ...}
 var delay := 0.0               # задержка срабатывания связанного объекта
 var wire: Dictionary = {}      # {a, b} — нить растяжки в МИРОВЫХ координатах
+var placer: Node3D = null      # кто поставил: свои ловушки его не бьют
 
 func setup(id: String, p_cell: Vector2i, p_quality: float, p_hidden: bool, vis_mult: float, opts: Dictionary = {}) -> void:
 	trap_id = id
@@ -27,8 +28,17 @@ func setup(id: String, p_cell: Vector2i, p_quality: float, p_hidden: bool, vis_m
 	delay = float(opts.get("delay", 0.0))
 	wire = opts.get("wire", {})
 	visibility = def["vis"] * vis_mult * (Defs.CARPET_VIS_MULT if hidden else 1.0)
+	placer = opts.get("placer", null)
 	# ghost-установка даёт точную точку на поверхности; фолбэк — центр клетки
 	position = opts.get("pos", Defs.cell_to_world(cell))
+	# на стене/потолке — ловушка ложится плашмя по нормали поверхности
+	var normal: Vector3 = opts.get("normal", Vector3.UP)
+	if normal.y < 0.9:
+		var x := normal.cross(Vector3.UP)
+		if x.length() < 0.01:
+			x = Vector3.RIGHT
+		x = x.normalized()
+		basis = Basis(x, normal, x.cross(normal))
 	_build_visual()
 	_build_area()
 
@@ -55,13 +65,20 @@ func _build_area() -> void:
 		col.position = Vector3(0, 0.8, 0)
 	col.shape = shape
 	area.add_child(col)
+	# ловим и грабителей (слой 1|4), и мелких (слой 2) — дружеский огонь включён
+	area.collision_mask = 7
 	add_child(area)
 	area.body_entered.connect(_on_body)
 
 func _on_body(body: Node3D) -> void:
 	if spent or retrigger_cd > 0.0:
 		return
-	if not body.is_in_group("robbers"):
+	var is_robber := body.is_in_group("robbers")
+	var is_kid := body.is_in_group("kids")
+	if not is_robber and not is_kid:
+		return
+	# свои ловушки поставившего не трогают; приманки на мелких не работают
+	if is_kid and (body == placer or bool(def.get("bait", false))):
 		return
 	# осечка: плохо поставленная ловушка может не сработать
 	if quality < 0.75 and randf() < 0.4:
@@ -73,18 +90,25 @@ func _on_body(body: Node3D) -> void:
 		spent = true
 	# 1.0с — чтобы работал пинг-понг «шарики → банан → обратно на шарики»
 	retrigger_cd = 1.0
-	triggered.emit(self)
+	triggered.emit(self, body)
 	_play_trigger_fx()
 
-## Цепное срабатывание от соседней ловушки.
-func force_trigger() -> void:
+## Цепное срабатывание от соседней ловушки/провода. body=null — эффект на грабителя.
+func force_trigger(body: Node3D = null) -> void:
 	if spent:
 		return
 	if def["oneshot"]:
 		spent = true
 	retrigger_cd = 1.0
-	triggered.emit(self)
+	triggered.emit(self, body)
 	_play_trigger_fx()
+
+## Провод: подключить эту ловушку к объекту дома на расстоянии.
+func attach_link(p_link: Dictionary, p_delay: float) -> void:
+	link = p_link.duplicate()
+	link["trigger_cell"] = cell
+	delay = p_delay
+	_draw_link_wire()
 
 ## Скрытое комбо петарда+масло: лужа вспыхивает и становится зоной паники.
 func become_fire() -> void:
@@ -175,6 +199,31 @@ func apply_to(santa: Node) -> void:
 		float(def["capture_mult"]),
 		extra
 	)
+
+## Честный tell: провод от триггера к связанному объекту видно глазами.
+func _draw_link_wire() -> void:
+	var target := Defs.cell_to_world(link["cell"]) + Vector3(0, 2.3 if link["type"] == "chandelier" else 1.2, 0)
+	var from := position + Vector3(0, 0.2, 0)
+	var vec := target - from
+	if vec.length() < 0.05:
+		return
+	var wm := CylinderMesh.new()
+	wm.top_radius = 0.015
+	wm.bottom_radius = 0.015
+	wm.height = vec.length()
+	var mi := MeshInstance3D.new()
+	mi.name = "LinkWire"
+	mi.mesh = wm
+	mi.material_override = Defs.flat_mat(Color(0.75, 0.65, 0.45))
+	mi.position = (from + target) * 0.5 - position
+	# ось Y цилиндра — вдоль верёвки
+	var y := vec.normalized()
+	var x := y.cross(Vector3.UP)
+	if x.length() < 0.01:
+		x = Vector3.RIGHT
+	x = x.normalized()
+	mi.basis = basis.inverse() * Basis(x, y, x.cross(y))
+	add_child(mi)
 
 func _fizzle() -> void:
 	var tw := create_tween()
@@ -355,25 +404,7 @@ func _build_visual() -> void:
 			mi.rotation_degrees = Vector3(0, 0, 90)
 	# верёвка от триггера к связанному объекту — видно, что заряжено
 	if not link.is_empty():
-		var target := Defs.cell_to_world(link["cell"]) + Vector3(0, 2.3 if link["type"] == "chandelier" else 1.2, 0)
-		var from := position + Vector3(0, 0.2, 0)
-		var vec := target - from
-		var wire := CylinderMesh.new()
-		wire.top_radius = 0.015
-		wire.bottom_radius = 0.015
-		wire.height = vec.length()
-		var mi := MeshInstance3D.new()
-		mi.mesh = wire
-		mi.material_override = Defs.flat_mat(Color(0.75, 0.65, 0.45))
-		mi.position = (from + target) * 0.5 - position
-		# ось Y цилиндра — вдоль верёвки
-		var y := vec.normalized()
-		var x := y.cross(Vector3.UP)
-		if x.length() < 0.01:
-			x = Vector3.RIGHT
-		x = x.normalized()
-		mi.basis = Basis(x, y, x.cross(y))
-		add_child(mi)
+		_draw_link_wire()
 	if hidden:
 		# пацанам видно полупрозрачно, что под ковром что-то лежит
 		for child in get_children():

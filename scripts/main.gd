@@ -173,6 +173,27 @@ func _run_smoke_test() -> void:
 			m.place_trap("plate_link", "plate", trig, 0.9, false,
 				{"link": {"type": "chandelier", "cell": ch_cell, "trigger_cell": trig}, "delay": 1.5})
 			placed_cells.append(trig)
+		# ПРОВОД: связываем первую свободную ловушку со ВТОРОЙ люстрой на расстоянии
+		var wired := false
+		var ch2 := Vector2i(-99, -99)
+		for c in m.house.chandeliers:
+			if c != ch_cell:
+				ch2 = c
+		if ch2 != Vector2i(-99, -99):
+			for c in placed_cells:
+				var t = m.traps.get(c)
+				if t != null and t.link.is_empty() and not t.def.get("bait", false):
+					t.attach_link({"type": "chandelier", "cell": ch2}, 0.5)
+					wired = true
+					break
+		# БЮДЖЕТ: пробуем поставить сверх лимита
+		m.loadout["shards"] = 30
+		for dx in range(-9, 10):
+			for dz in range(-9, 10):
+				var c := spawn + Vector2i(dx, dz)
+				if m.house.is_free_cell(c) and not m.traps.has(c):
+					m.place_trap("shards", "shards", c, 0.9, false)
+		var over_budget: bool = m.active_trap_count() > Defs.TRAP_BUDGET
 		# фаза ограбления
 		m.phase_t = 0.5
 		await get_tree().create_timer(2.0).timeout
@@ -192,6 +213,21 @@ func _run_smoke_test() -> void:
 		if m.robber.carrying > 0:
 			m.robber.global_position = Vector3(-6, 0.1, -6)
 			await get_tree().create_timer(1.0).timeout
+		# ДРУЖЕСКИЙ ОГОНЬ: мелкий наступает на «ничью» ловушку
+		var ff_ok := false
+		for cell in placed_cells:
+			var t = m.traps.get(cell)
+			if t != null and is_instance_valid(t) and not t.spent and not t.def.get("bait", false):
+				t.placer = null
+				m.kid.global_position = Defs.cell_to_world(cell) + Vector3(0, 0.1, 0)
+				# стан может быть коротким — ловим его пока действует
+				for i in 40:
+					await get_tree().process_frame
+					if m.kid.trap_stun_t > 0.0:
+						ff_ok = true
+						break
+				m.kid.global_position = Defs.cell_to_world(spawn) + Vector3(0, 0.1, 0)
+				break
 		# прогоняем грабителя по всем ловушкам
 		var fired := 0
 		for cell in placed_cells:
@@ -203,14 +239,22 @@ func _run_smoke_test() -> void:
 			fired += 1
 			await get_tree().create_timer(4.0).timeout
 		await get_tree().create_timer(10.0).timeout
-		print("SANTA_TEST: %s — фаза=%d, окон закрыто=%d, лута=%d, украдено=%d/%d, ловушек сработало=%d, стиль=%d" % [
-			loc_id, m.phase, closed, found, m.stolen_jewels, m.total_jewels, fired, m.style_score])
+		var wire_ok: bool = wired and ch2 != Vector2i(-99, -99) and m.house.chandeliers[ch2].has_meta("crashed")
+		print("SANTA_TEST: %s — фаза=%d, окон=%d, лута=%d, украдено=%d/%d, ловушек=%d, стиль=%d, провод=%s, свой_огонь=%s, бюджет_ок=%s" % [
+			loc_id, m.phase, closed, found, m.stolen_jewels, m.total_jewels, fired, m.style_score,
+			str(wire_ok), str(ff_ok), str(not over_budget)])
 		if fired == 0:
 			push_error("SANTA_TEST: в %s не сработала ни одна ловушка" % loc_id)
 		if m.stolen_jewels == 0:
 			push_error("SANTA_TEST: кража в %s не засчиталась" % loc_id)
 		if closed == 0:
 			push_error("SANTA_TEST: в %s нечего закрывать?" % loc_id)
+		if wired and not wire_ok:
+			push_error("SANTA_TEST: провод-связка в %s не уронила люстру" % loc_id)
+		if not ff_ok:
+			push_error("SANTA_TEST: дружеский огонь в %s не сработал" % loc_id)
+		if over_budget:
+			push_error("SANTA_TEST: бюджет ловушек в %s не соблюдён" % loc_id)
 		m.queue_free()
 		await get_tree().process_frame
 	Engine.time_scale = 1.0
