@@ -144,6 +144,56 @@ static func electric_arc(parent: Node3D, a: Vector3, b: Vector3, color := Color(
 	spark.emitting = true
 	_autofree(spark, 1.0)
 
+## Настоящая верёвка между двумя точками: провисает дугой (катенария) + узлы
+## на концах. Именно она делает связку «два предмета соединены» читаемой.
+## Возвращает узел-контейнер (можно queue_free при снятии).
+static func build_rope(parent: Node3D, a: Vector3, b: Vector3, sag := 0.35,
+		color := Color(0.82, 0.72, 0.5), thickness := 0.02) -> Node3D:
+	var holder := Node3D.new()
+	holder.top_level = true
+	parent.add_child(holder)
+	var segs := 12
+	var prev := a
+	var mat := Defs.fabric_mat(color)
+	for i in range(1, segs + 1):
+		var t := float(i) / segs
+		# провис по параболе (0 на концах, максимум в середине)
+		var droop := sag * 4.0 * t * (1.0 - t)
+		var p := a.lerp(b, t) - Vector3(0, droop, 0)
+		_rope_segment(holder, prev, p, thickness, mat)
+		prev = p
+	# узлы-утолщения на концах
+	for e in [a, b]:
+		var knot := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = thickness * 2.2
+		sm.height = thickness * 4.4
+		knot.mesh = sm
+		knot.material_override = Defs.fabric_mat(color.darkened(0.15))
+		knot.position = e
+		holder.add_child(knot)
+	return holder
+
+static func _rope_segment(holder: Node3D, a: Vector3, b: Vector3, r: float, mat: Material) -> void:
+	var v := b - a
+	var l := v.length()
+	if l < 0.001:
+		return
+	var mi := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = r
+	cyl.bottom_radius = r
+	cyl.height = l
+	mi.mesh = cyl
+	mi.material_override = mat
+	var y := v / l
+	var x := y.cross(Vector3.UP)
+	if x.length() < 0.01:
+		x = Vector3.RIGHT
+	x = x.normalized()
+	mi.transform = Transform3D(Basis(x, y, x.cross(y)), (a + b) * 0.5)
+	holder.add_child(mi)
+
 # ---------------------------------------------------------------- helpers
 
 static func _autofree(node: Node, delay: float) -> void:

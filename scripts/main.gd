@@ -18,7 +18,42 @@ func _ready() -> void:
 	if OS.get_environment("WATER_SHOT") != "":
 		_run_water_shot()
 		return
+	if OS.get_environment("ROPE_SHOT") != "":
+		_run_rope_shot()
+		return
 	_show_menu()
+
+## Рендер верёвки-связки на чистой сцене: провисает дугой между двумя предметами.
+func _run_rope_shot() -> void:
+	var dir: String = OS.get_environment("ROPE_SHOT")
+	var root := Node3D.new()
+	add_child(root)
+	HouseBuilder.build_night_env(root)
+	var floor := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(12, 12)
+	floor.mesh = pm
+	floor.material_override = Defs.wood_mat(Color(0.72, 0.55, 0.38))
+	root.add_child(floor)
+	var key := DirectionalLight3D.new()
+	key.rotation_degrees = Vector3(-45, 25, 0)
+	key.light_energy = 1.2
+	root.add_child(key)
+	# два «предмета»: ведро слева на полу, люстра справа вверху; верёвка между ними
+	var bucket := ModelLib.place(root, "c:bucket", Vector3(-1.2, 0, 0), Vector3(0.5, 0.45, 0.5))
+	var mtrap := ModelLib.place(root, "c:mousetrap", Vector3(1.4, 0, 0.4), Vector3(0.5, 0.3, 0.5))
+	var a := Vector3(-1.2, 0.45, 0)   # ручка ведра
+	var b := Vector3(1.4, 0.12, 0.4)  # мышеловка на полу
+	PropFX.build_rope(root, a, b, 0.3)
+	# ещё одна — круто провисающая, повыше
+	PropFX.build_rope(root, Vector3(-1.2, 0.5, 0), Vector3(0.2, 2.2, -1.5), 0.5)
+	var cam := Camera3D.new()
+	root.add_child(cam)
+	cam.position = Vector3(0, 1.4, 3.4)
+	cam.look_at(Vector3(0, 0.7, 0))
+	await get_tree().create_timer(0.8).timeout
+	await _shot(dir + "/rope_link.png")
+	get_tree().quit(0)
 
 ## Прицельный тест водяного ведра на ЧИСТОЙ сцене: налив → слив → лужа.
 func _run_water_shot() -> void:

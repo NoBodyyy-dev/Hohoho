@@ -29,6 +29,10 @@ func setup(id: String, p_cell: Vector2i, p_quality: float, p_hidden: bool, vis_m
 	wire = opts.get("wire", {})
 	visibility = def["vis"] * vis_mult * (Defs.CARPET_VIS_MULT if hidden else 1.0)
 	placer = opts.get("placer", null)
+	# верёвка/растяжка живёт в родителе (top_level) — убираем вместе с ловушкой
+	tree_exiting.connect(func():
+		if is_instance_valid(link_rope):
+			link_rope.queue_free())
 	# ghost-установка даёт точную точку на поверхности; фолбэк — центр клетки
 	position = opts.get("pos", Defs.cell_to_world(cell))
 	# на стене/потолке — ловушка ложится плашмя по нормали поверхности
@@ -200,30 +204,17 @@ func apply_to(santa: Node) -> void:
 		extra
 	)
 
-## Честный tell: провод от триггера к связанному объекту видно глазами.
+## Честный tell: настоящая верёвка от триггера к связанному объекту (провисает,
+## с узлами) — видно, что два предмета соединены в одну машину.
 func _draw_link_wire() -> void:
-	var target := Defs.cell_to_world(link["cell"]) + Vector3(0, 2.3 if link["type"] == "chandelier" else 1.2, 0)
-	var from := position + Vector3(0, 0.2, 0)
-	var vec := target - from
-	if vec.length() < 0.05:
+	var h := 2.3 if link["type"] == "chandelier" else 1.2
+	var target := Defs.cell_to_world(link["cell"]) + Vector3(0, h, 0)
+	var from := global_position + Vector3(0, 0.2, 0)
+	if from.distance_to(target) < 0.05:
 		return
-	var wm := CylinderMesh.new()
-	wm.top_radius = 0.015
-	wm.bottom_radius = 0.015
-	wm.height = vec.length()
-	var mi := MeshInstance3D.new()
-	mi.name = "LinkWire"
-	mi.mesh = wm
-	mi.material_override = Defs.flat_mat(Color(0.75, 0.65, 0.45))
-	mi.position = (from + target) * 0.5 - position
-	# ось Y цилиндра — вдоль верёвки
-	var y := vec.normalized()
-	var x := y.cross(Vector3.UP)
-	if x.length() < 0.01:
-		x = Vector3.RIGHT
-	x = x.normalized()
-	mi.basis = basis.inverse() * Basis(x, y, x.cross(y))
-	add_child(mi)
+	# провис зависит от длины — короткая натянута, длинная свисает
+	var sag: float = clampf(from.distance_to(target) * 0.12, 0.1, 0.6)
+	link_rope = PropFX.build_rope(get_parent(), from, target, sag)
 
 func _fizzle() -> void:
 	var tw := create_tween()
@@ -380,34 +371,13 @@ func _mesh(m: Mesh, pos: Vector3, color: Color, emission := 0.0) -> MeshInstance
 
 ## Нить растяжки от конца a к концу b (мировые координаты) + узелки на концах.
 func _build_wire_mesh() -> void:
-	var a: Vector3 = wire["a"] - position
-	var b: Vector3 = wire["b"] - position
-	var v := b - a
-	var l := v.length()
-	if l < 0.05:
+	var a: Vector3 = wire["a"]
+	var b: Vector3 = wire["b"]
+	if a.distance_to(b) < 0.05:
 		return
-	var mi := MeshInstance3D.new()
-	var cyl := CylinderMesh.new()
-	cyl.top_radius = 0.02
-	cyl.bottom_radius = 0.02
-	cyl.height = 1.0
-	mi.mesh = cyl
-	mi.material_override = Defs.flat_mat(Color(0.82, 0.72, 0.5))
-	var yd := v / l
-	var xd := yd.cross(Vector3.UP)
-	if xd.length() < 0.01:
-		xd = Vector3.RIGHT
-	xd = xd.normalized()
-	mi.transform = Transform3D(Basis(xd, yd * l, zd_of(xd, yd)), (a + b) * 0.5)
-	add_child(mi)
-	for p in [a, b]:
-		var knot := SphereMesh.new()
-		knot.radius = 0.05
-		knot.height = 0.1
-		_mesh(knot, p, Color(0.7, 0.6, 0.42))
-
-static func zd_of(xd: Vector3, yd: Vector3) -> Vector3:
-	return xd.cross(yd)
+	# натянутая нить растяжки — почти без провиса, тонкая
+	link_rope = PropFX.build_rope(get_parent(), a, b, 0.04,
+		Color(0.85, 0.75, 0.55), 0.012)
 
 # Ловушки с готовой custom-моделью (id ловушки → файл в assets/custom/).
 const CUSTOM_MODELS := {
@@ -419,6 +389,7 @@ const CUSTOM_MODELS := {
 
 var water_mesh: MeshInstance3D    # уровень воды в ведре (наливается/сливается)
 var bucket_node: Node3D           # само ведро (для наклона при сливе)
+var link_rope: Node3D             # верёвка к связанному объекту (снять при удалении)
 
 func _build_visual() -> void:
 	# сначала пробуем настоящую модель (нейронка, стиль Meccha); нет — процедура
