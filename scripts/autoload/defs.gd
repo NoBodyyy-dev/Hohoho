@@ -135,6 +135,16 @@ const ITEMS := {
 		"desc": "Тяжеленная гиря качается через проход как таран. Сносит с ног и отбрасывает далеко. Ставит только Умник.",
 		"only_char": "brains",
 	},
+	"flowerpot": {
+		"name": "Горшок на верёвке", "cost": 2, "place_time": 2.0,
+		"desc": "Подвешенный горшок с цветком. Качнётся с потолка и стукнет по макушке — земля во все стороны.",
+		"only_char": "",
+	},
+	"smoke_bomb": {
+		"name": "Дымовая шашка", "cost": 3, "place_time": 1.6,
+		"desc": "Пшикает густым дымом. Грабитель ничего не видит, теряется и забывает, где ловушки.",
+		"only_char": "",
+	},
 }
 
 ## Предметы, которые можно лепить на стены и потолок (не только на пол).
@@ -249,6 +259,16 @@ const TRAPS := {
 		"name": "Гиря-маятник", "item": "weight",
 		"slow": 1.0, "slow_dur": 0.0, "stun": 5.5, "vis": 0.55, "oneshot": true, "capture_mult": 1.6,
 		"knock": -4.5, "dizzy": 2.5,
+	},
+	"flowerpot": {
+		"name": "Горшок на верёвке", "item": "flowerpot",
+		"slow": 1.0, "slow_dur": 0.0, "stun": 3.2, "vis": 0.5, "oneshot": true, "capture_mult": 1.3,
+		"knock": -2.2, "dizzy": 1.5,
+	},
+	"smoke_bomb": {
+		"name": "Дымовая шашка", "item": "smoke_bomb",
+		"slow": 0.7, "slow_dur": 5.0, "stun": 0.3, "vis": 0.5, "oneshot": true, "capture_mult": 1.2,
+		"dizzy": 4.0, "disorient": true,
 	},
 }
 
@@ -455,6 +475,7 @@ const SEARCH_LOOT := {
 	"": 3, "shards": 2, "tape": 2, "banana": 2, "marbles": 2, "mousetrap": 2, "wire": 2,
 	"oil": 1, "glue": 1, "rope": 1, "plate": 1, "perfume": 1, "cookie": 1,
 	"firecracker": 1, "bucket": 1, "garland_shock": 1, "net": 1, "iron": 1,
+	"flowerpot": 1, "smoke_bomb": 1,
 }
 
 ## Стартовый чемодан у спавна мелких — базовый набор на команду.

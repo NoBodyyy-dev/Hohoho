@@ -228,7 +228,7 @@ func _play_trigger_fx() -> void:
 	if trap_id == "bucket_door":
 		_pour_water()
 		return   # ведро само уедет после слива
-	if trap_id in ["iron", "weight"]:
+	if trap_id in ["iron", "weight", "flowerpot"]:
 		_swing_pendulum()
 		return   # маятник сам исчезнет после затухания
 	if def["oneshot"]:
@@ -239,11 +239,12 @@ func _play_trigger_fx() -> void:
 
 # ---------------------------------------------------------------- ВОДЯНОЕ ВЕДРО
 
-## Ведро над дверью: модель + вода, которая НАЛИВАЕТСЯ после установки.
+## Ведро над дверью: подвешено ЗА РУЧКУ на верёвке к потолку + вода наливается.
 func _build_water_bucket() -> void:
 	bucket_node = Node3D.new()
 	bucket_node.position = Vector3(0, 2.35, 0)
 	add_child(bucket_node)
+	var bucket_h := 0.4
 	var got := ModelLib.place(bucket_node, "c:bucket", Vector3.ZERO, Vector3(0.44, 0.4, 0.44))
 	if got == null:
 		# фолбэк — процедурное ведро
@@ -255,6 +256,28 @@ func _build_water_bucket() -> void:
 		mi.mesh = b
 		mi.material_override = Defs.flat_mat(Color(0.55, 0.6, 0.65))
 		bucket_node.add_child(mi)
+	else:
+		bucket_h = float(got.get_meta("size", Vector3(0, 0.4, 0)).y)
+	# верёвка ОТ РУЧКИ ведра (верх) вверх к потолочному крюку — видно, за что висит
+	var handle := Vector3(0, bucket_h, 0)               # ручка = верх ведра
+	var hook := Vector3(0, 0.65, 0)                      # крюк над ведром (у потолка)
+	var rope := MeshInstance3D.new()
+	var rc := CylinderMesh.new()
+	rc.top_radius = 0.014
+	rc.bottom_radius = 0.014
+	rc.height = hook.y - handle.y
+	rope.mesh = rc
+	rope.material_override = Defs.fabric_mat(Color(0.82, 0.72, 0.5))
+	rope.position = (handle + hook) * 0.5
+	bucket_node.add_child(rope)
+	var hk := MeshInstance3D.new()
+	var hm := SphereMesh.new()
+	hm.radius = 0.045
+	hm.height = 0.09
+	hk.mesh = hm
+	hk.material_override = Defs.flat_mat(Color(0.5, 0.5, 0.55))
+	hk.position = hook
+	bucket_node.add_child(hk)
 	# вода внутри — поднимается снизу вверх (эффект налива)
 	water_mesh = MeshInstance3D.new()
 	var wm := CylinderMesh.new()
@@ -370,26 +393,30 @@ func _build_pendulum(model_id: String, size: Vector3, hang: float) -> void:
 	pendulum_pivot = Node3D.new()
 	pendulum_pivot.position = Vector3(0, 2.75, 0)   # крепление у потолка
 	add_child(pendulum_pivot)
-	# верёвка подвеса (тугая, прямая — внутри маятника)
-	var rope := MeshInstance3D.new()
-	var rc := CylinderMesh.new()
-	rc.top_radius = 0.018
-	rc.bottom_radius = 0.018
-	rc.height = hang
-	rope.mesh = rc
-	rope.material_override = Defs.fabric_mat(Color(0.82, 0.72, 0.5))
-	rope.position = Vector3(0, -hang * 0.5, 0)
-	pendulum_pivot.add_child(rope)
-	# сам предмет висит на конце верёвки
+	# сам предмет висит на конце — базой на -hang, значит его ВЕРХ на -hang+objH
 	var obj := ModelLib.place(pendulum_pivot, model_id, Vector3(0, -hang, 0), size)
+	var obj_h := size.y
 	if obj == null:
 		var mi := MeshInstance3D.new()
 		var bm := BoxMesh.new()
 		bm.size = size
 		mi.mesh = bm
 		mi.material_override = Defs.flat_mat(Color(0.4, 0.42, 0.48))
-		mi.position = Vector3(0, -hang, 0)
+		mi.position = Vector3(0, -hang + size.y * 0.5, 0)
 		pendulum_pivot.add_child(mi)
+	else:
+		obj_h = float(obj.get_meta("size", size).y)
+	# верёвка подвеса: от крюка (0) к ВЕРХУ предмета (-hang+obj_h) — крепится к нему
+	var top := -hang + obj_h
+	var rope := MeshInstance3D.new()
+	var rc := CylinderMesh.new()
+	rc.top_radius = 0.018
+	rc.bottom_radius = 0.018
+	rc.height = maxf(-top, 0.05)
+	rope.mesh = rc
+	rope.material_override = Defs.fabric_mat(Color(0.82, 0.72, 0.5))
+	rope.position = Vector3(0, top * 0.5, 0)
+	pendulum_pivot.add_child(rope)
 	# крюк на потолке
 	var hook := MeshInstance3D.new()
 	var hm := SphereMesh.new()
@@ -540,6 +567,16 @@ func _build_visual() -> void:
 			_build_pendulum("c:iron", Vector3(0.4, 0.28, 0.5), 1.2)
 		"weight":
 			_build_pendulum("c:weight", Vector3(0.42, 0.42, 0.42), 1.4)
+		"flowerpot":
+			_build_pendulum("c:flowerpot", Vector3(0.4, 0.42, 0.4), 1.3)
+		"smoke_bomb":
+			var m := ModelLib.place(self, "c:smoke_bomb", Vector3.ZERO, Vector3(0.18, 0.28, 0.18))
+			if m == null:
+				var cyl := CylinderMesh.new()
+				cyl.top_radius = 0.08
+				cyl.bottom_radius = 0.08
+				cyl.height = 0.22
+				_mesh(cyl, Vector3(0, 0.11, 0), Color(0.35, 0.45, 0.32))
 		"firecracker", "firecracker_chimney":
 			var f := CylinderMesh.new()
 			f.top_radius = 0.06

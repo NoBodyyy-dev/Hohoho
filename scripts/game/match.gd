@@ -624,6 +624,11 @@ func _trigger_fx(trap: Trap) -> void:
 			PropFX.scatter_marbles(self, trap.global_position + Vector3(0, 0.1, 0), 12)
 		"perfume":
 			_cloud(pos + Vector3(0, 0.5, 0), Color(0.9, 0.5, 0.85))
+		"smoke_bomb":
+			# густой серый дым — большое плотное облако
+			_cloud(pos + Vector3(0, 0.6, 0), Color(0.55, 0.57, 0.6))
+			_cloud(pos + Vector3(0.4, 0.8, 0.3), Color(0.5, 0.52, 0.55))
+			_burst(pos, Color(0.6, 0.62, 0.65), 30, 2.0)
 		"garland_shock":
 			# дуга бьёт от гирлянды в грабителя
 			PropFX.electric_arc(self, pos + Vector3(0, 0.4, 0), robber.global_position + Vector3(0, 1.0, 0))
