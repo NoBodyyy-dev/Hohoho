@@ -145,6 +145,11 @@ const ITEMS := {
 		"desc": "Пшикает густым дымом. Грабитель ничего не видит, теряется и забывает, где ловушки.",
 		"only_char": "",
 	},
+	"spray": {
+		"name": "Баллончик-распылитель", "cost": 2, "place_time": 1.4,
+		"desc": "Самодельный распылитель на растяжке. Пшикает краской прямо в глаза — грабитель слепнет и тормозит.",
+		"only_char": "",
+	},
 }
 
 ## Предметы, которые можно лепить на стены и потолок (не только на пол).
@@ -269,6 +274,11 @@ const TRAPS := {
 		"name": "Дымовая шашка", "item": "smoke_bomb",
 		"slow": 0.7, "slow_dur": 5.0, "stun": 0.3, "vis": 0.5, "oneshot": true, "capture_mult": 1.2,
 		"dizzy": 4.0, "disorient": true,
+	},
+	"spray": {
+		"name": "Баллончик-распылитель", "item": "spray",
+		"slow": 0.55, "slow_dur": 3.5, "stun": 0.8, "vis": 0.45, "oneshot": true, "capture_mult": 1.25,
+		"dizzy": 3.0,
 	},
 }
 
@@ -475,7 +485,7 @@ const SEARCH_LOOT := {
 	"": 3, "shards": 2, "tape": 2, "banana": 2, "marbles": 2, "mousetrap": 2, "wire": 2,
 	"oil": 1, "glue": 1, "rope": 1, "plate": 1, "perfume": 1, "cookie": 1,
 	"firecracker": 1, "bucket": 1, "garland_shock": 1, "net": 1, "iron": 1,
-	"flowerpot": 1, "smoke_bomb": 1,
+	"flowerpot": 1, "smoke_bomb": 1, "spray": 1,
 }
 
 ## Стартовый чемодан у спавна мелких — базовый набор на команду.

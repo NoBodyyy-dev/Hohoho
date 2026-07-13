@@ -629,6 +629,11 @@ func _trigger_fx(trap: Trap) -> void:
 			_cloud(pos + Vector3(0, 0.6, 0), Color(0.55, 0.57, 0.6))
 			_cloud(pos + Vector3(0.4, 0.8, 0.3), Color(0.5, 0.52, 0.55))
 			_burst(pos, Color(0.6, 0.62, 0.65), 30, 2.0)
+		"spray":
+			# струя краски вверх в лицо (конус) + цветное облачко
+			var pcol := Color(0.95, 0.35, 0.7)
+			_spray_cone(pos + Vector3(0, 0.25, 0), pcol)
+			_cloud(pos + Vector3(0, 0.7, 0), pcol)
 		"garland_shock":
 			# дуга бьёт от гирлянды в грабителя
 			PropFX.electric_arc(self, pos + Vector3(0, 0.4, 0), robber.global_position + Vector3(0, 1.0, 0))
@@ -698,6 +703,38 @@ func _cloud(pos: Vector3, color: Color) -> void:
 	tw.tween_interval(2.5)
 	tw.tween_callback(func(): p.emitting = false)
 	tw.tween_interval(2.4)
+	tw.tween_callback(p.queue_free)
+
+## Резкая струя-конус распыла (краска в лицо): бьёт вверх с сужением.
+func _spray_cone(pos: Vector3, color: Color) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = 40
+	p.lifetime = 0.6
+	p.one_shot = true
+	p.explosiveness = 0.7
+	p.position = pos
+	var pm := ParticleProcessMaterial.new()
+	pm.direction = Vector3(0, 1, 0)
+	pm.spread = 22.0
+	pm.initial_velocity_min = 3.0
+	pm.initial_velocity_max = 4.5
+	pm.gravity = Vector3(0, -3.0, 0)
+	pm.scale_min = 0.6
+	pm.scale_max = 1.4
+	pm.color = color
+	p.process_material = pm
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.07, 0.07)
+	var qm := StandardMaterial3D.new()
+	qm.albedo_color = color
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	quad.material = qm
+	p.draw_pass_1 = quad
+	add_child(p)
+	p.emitting = true
+	var tw := p.create_tween()
+	tw.tween_interval(1.2)
 	tw.tween_callback(p.queue_free)
 
 # ---------------------------------------------------------------- СОБЫТИЯ

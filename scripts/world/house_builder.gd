@@ -1174,7 +1174,13 @@ func spill_milk(from: Vector2i) -> Array:
 		pm.bottom_radius = 0.5
 		pm.height = 0.02
 		puddle.mesh = pm
-		puddle.material_override = Defs.flat_mat(Color(0.96, 0.96, 0.98, 0.9))
+		# блестящее молоко: глянцевая белая поверхность с бликом
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(0.97, 0.97, 0.99, 0.95)
+		mat.metallic = 0.15
+		mat.roughness = 0.08
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		puddle.material_override = mat
 		puddle.position = Defs.cell_to_world(c) + Vector3(0, 0.02, 0)
 		puddle.scale = Vector3(0.1, 1, 0.1)
 		root.add_child(puddle)

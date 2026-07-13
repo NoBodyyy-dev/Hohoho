@@ -488,6 +488,7 @@ const CUSTOM_MODELS := {
 	"firecracker": "c:firecracker", "firecracker_chimney": "c:firecracker",
 	"perfume": "c:perfume", "plate": "c:pressure_plate", "plate_link": "c:pressure_plate",
 	"tape": "c:tape", "garland_shock": "c:garland_shock", "cookie": "c:cookie_plate",
+	"spray": "c:spray_can",
 }
 
 var water_mesh: MeshInstance3D    # уровень воды в ведре (наливается/сливается)
@@ -517,17 +518,9 @@ func _build_visual() -> void:
 				s.height = 0.07
 				_mesh(s, Vector3(rng.randf_range(-0.4, 0.4), 0.03, rng.randf_range(-0.4, 0.4)), cols[i % 4], 0.8)
 		"oil", "oil_tiles":
-			var d := CylinderMesh.new()
-			d.top_radius = 0.45
-			d.bottom_radius = 0.45
-			d.height = 0.03
-			_mesh(d, Vector3(0, 0.03, 0), Color(0.15, 0.13, 0.1, 0.85))
+			_build_puddle(0.45, Color(0.12, 0.11, 0.13, 0.92), 0.7, 0.04)
 		"glue", "glue_door":
-			var d := CylinderMesh.new()
-			d.top_radius = 0.4
-			d.bottom_radius = 0.4
-			d.height = 0.04
-			_mesh(d, Vector3(0, 0.03, 0), Color(0.9, 0.85, 0.5))
+			_build_puddle(0.4, Color(0.92, 0.82, 0.35, 0.92), 0.2, 0.12)
 		"tape":
 			var b := BoxMesh.new()
 			b.size = Vector3(0.9, 0.02, 0.35)
@@ -642,6 +635,31 @@ func _build_visual() -> void:
 	_apply_hidden_alpha()
 
 ## Под ковром ловушку видно полупрозрачно (и своим, и грабителю — слегка).
+## Блестящая лужа: отражающий диск, который РАСТЕКАЕТСЯ при установке.
+## metallic/rough задают «жирность»: масло — тёмное зеркало, клей — глянец.
+func _build_puddle(radius: float, color: Color, metallic: float, rough: float) -> void:
+	var d := CylinderMesh.new()
+	d.top_radius = radius
+	d.bottom_radius = radius
+	d.height = 0.02
+	var mi := MeshInstance3D.new()
+	mi.mesh = d
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.metallic = metallic
+	mat.metallic_specular = 0.9
+	mat.roughness = rough
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.rim_enabled = true
+	mat.rim = 0.4
+	mi.material_override = mat
+	mi.position = Vector3(0, 0.012, 0)
+	add_child(mi)
+	# растекается из точки за 0.5с + лёгкая пульсация «мокрого» блеска
+	mi.scale = Vector3(0.15, 1, 0.15)
+	var tw := mi.create_tween()
+	tw.tween_property(mi, "scale", Vector3.ONE, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
 func _apply_hidden_alpha() -> void:
 	if not hidden:
 		return
