@@ -454,7 +454,8 @@ func _activate_object(link: Dictionary, quality: float) -> void:
 				return
 			get_tree().create_timer(0.3).timeout.connect(func():
 				_burst(target + Vector3(0, 0.6, 0), Color(1.0, 0.85, 0.4), 50, 3.0)
-				hud.shake(10.0)
+				PropFX.impact(self, target + Vector3(0, 0.1, 0), Color(0.85, 0.8, 0.5), 10)
+				hud.shake(12.0)
 				if robber.global_position.distance_to(target) < Defs.CHANDELIER_AOE:
 					robber.apply_trap_effect(7.0 * quality, 0.6, 4.0, false, 1.6, {"dizzy": 3.0})
 					hud.big_announce("ЛЮСТРОЙ ЕГО!", Color(1, 0.85, 0.3))
@@ -469,7 +470,8 @@ func _activate_object(link: Dictionary, quality: float) -> void:
 			var tcell: Vector2i = link.get("trigger_cell", link["cell"])
 			get_tree().create_timer(0.4).timeout.connect(func():
 				_burst(target + Vector3(0, 0.8, 0), Color(0.8, 0.65, 0.4), 40, 2.5)
-				hud.shake(8.0)
+				PropFX.impact(self, Defs.cell_to_world(tcell) + Vector3(0, 0.1, 0), Color(0.75, 0.6, 0.42), 12)
+				hud.shake(10.0)
 				if is_fridge:
 					var wet: Array = house.spill_milk(shelf["cell"])
 					hud.show_message("Молоко разлилось — скользко и ловушек не видно!", Color(0.9, 0.95, 1.0))
@@ -493,6 +495,8 @@ func _activate_object(link: Dictionary, quality: float) -> void:
 				else:
 					robber.apply_trap_effect(4.0 * quality, 0.6, 3.5, false, 1.4, {"dizzy": 2.0})
 					hud.big_announce("ЭЛЕКТРОШОК!", Color(0.6, 0.85, 1.0))
+				# дуга от экрана к жертве
+				PropFX.electric_arc(self, target_tv + Vector3(0, 1.0, 0), robber.global_position + Vector3(0, 1.0, 0))
 				_burst(target_tv + Vector3(0, 1.0, 0), Color(0.5, 0.85, 1.0), 45, 3.0)
 				_register_hit("tv_spark", "Телевизор")
 			else:
@@ -616,10 +620,13 @@ func _trigger_fx(trap: Trap) -> void:
 		"banana":
 			_burst(pos, Color(0.95, 0.85, 0.25), 20, 1.5)
 		"marbles":
-			_burst(pos, Color(0.6, 0.7, 0.95), 22, 1.6)
+			# настоящие катящиеся шарики
+			PropFX.scatter_marbles(self, trap.global_position + Vector3(0, 0.1, 0), 12)
 		"perfume":
 			_cloud(pos + Vector3(0, 0.5, 0), Color(0.9, 0.5, 0.85))
 		"garland_shock":
+			# дуга бьёт от гирлянды в грабителя
+			PropFX.electric_arc(self, pos + Vector3(0, 0.4, 0), robber.global_position + Vector3(0, 1.0, 0))
 			_burst(pos + Vector3(0, 0.6, 0), Color(0.5, 0.9, 1.0), 30, 2.4)
 		_:
 			_burst(pos, Color(0.9, 0.9, 1.0), 20, 1.6)
