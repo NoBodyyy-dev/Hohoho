@@ -15,7 +15,47 @@ func _ready() -> void:
 	if OS.get_environment("CUSTOM_SHOWCASE") != "":
 		_run_showcase()
 		return
+	if OS.get_environment("WATER_SHOT") != "":
+		_run_water_shot()
+		return
 	_show_menu()
+
+## Прицельный тест водяного ведра на ЧИСТОЙ сцене: налив → слив → лужа.
+func _run_water_shot() -> void:
+	var dir: String = OS.get_environment("WATER_SHOT")
+	var root := Node3D.new()
+	add_child(root)
+	HouseBuilder.build_night_env(root)
+	# пол под ведром
+	var floor := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(10, 10)
+	floor.mesh = pm
+	floor.material_override = Defs.wood_mat(Color(0.72, 0.55, 0.38))
+	root.add_child(floor)
+	var cam := Camera3D.new()
+	root.add_child(cam)
+	cam.position = Vector3(0, 1.6, 2.6)
+	cam.look_at(Vector3(0, 1.7, 0))
+	var key := DirectionalLight3D.new()
+	key.rotation_degrees = Vector3(-45, 25, 0)
+	key.light_energy = 1.2
+	root.add_child(key)
+	# ведро на высоте 2.35 (как над дверью)
+	var trap := Trap.new()
+	root.add_child(trap)
+	trap.add_to_group("traps")
+	trap.setup("bucket_door", Vector2i(0, 0), 0.95, false, 1.0, {"pos": Vector3(0, 0, 0)})
+	await get_tree().create_timer(2.6).timeout   # дождались налива
+	await _shot(dir + "/water_full.png")
+	trap.force_trigger()
+	await get_tree().create_timer(0.4).timeout
+	await _shot(dir + "/water_pour.png")
+	cam.position = Vector3(0, 1.3, 2.6)
+	cam.look_at(Vector3(0, 0.2, 0))
+	await get_tree().create_timer(1.6).timeout
+	await _shot(dir + "/water_puddle.png")
+	get_tree().quit(0)
 
 ## Витрина: все custom-модели в ряд под нашим контуром+светом — оценить стиль.
 func _run_showcase() -> void:
@@ -26,7 +66,8 @@ func _run_showcase() -> void:
 	var cam := Camera3D.new()
 	root.add_child(cam)
 	var ids := ["saw", "mousetrap", "rope_coil", "banana_peel", "firecracker", "marbles",
-		"pressure_plate", "perfume", "wire_spool", "screwdriver", "ladder", "suitcase", "jewel_ring"]
+		"pressure_plate", "perfume", "wire_spool", "screwdriver", "ladder", "suitcase", "jewel_ring",
+		"bucket", "cookie_plate", "garland_shock", "iron", "tape", "weight"]
 	var x := 0.0
 	var placed: Array = []
 	for id in ids:

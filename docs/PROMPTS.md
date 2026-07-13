@@ -39,7 +39,7 @@
 ⬜ **shards.glb** (битые ёлочные игрушки)
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a scatter of broken colorful christmas ornament shards on the floor`
 
-⬜ **tape.glb** (скотч)
+✅ **tape.glb** (скотч)
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a roll of duct tape`
 
 ⬜ **oil_puddle.glb** (масляная лужа)
@@ -48,13 +48,13 @@
 ⬜ **glue_puddle.glb** (клей)
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a glossy yellow glue puddle, flat on the floor`
 
-⬜ **cookie_plate.glb** (печенье с молоком — приманка)
+✅ **cookie_plate.glb** (печенье с молоком — приманка)
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a plate of cookies with a glass of milk`
 
-⬜ **bucket.glb** (ведро воды — над дверью)
+✅ **bucket.glb** (ведро воды — над дверью)
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a metal bucket filled with water`
 
-⬜ **garland_shock.glb** (гирлянда-шокер)
+✅ **garland_shock.glb** (гирлянда-шокер)
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a string of christmas lights with colorful bulbs`
 
 ⬜ **net.glb** (сеть)
@@ -62,10 +62,10 @@
 
 ## Новые ловушки (из списка связок)
 
-⬜ **iron.glb** (утюг — падает)
+✅ **iron.glb** (утюг — падает)
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a household clothes iron`
 
-⬜ **weight.glb** (гиря-маятник)
+✅ **weight.glb** (гиря-маятник)
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a black round gym kettlebell weight`
 
 ⬜ **bowling_ball.glb**

@@ -234,11 +234,139 @@ func _play_trigger_fx() -> void:
 	if trap_id == "rope_chandelier" and chandelier != null:
 		var tw := chandelier.create_tween()
 		tw.tween_property(chandelier, "position:y", 0.3, 0.25).set_ease(Tween.EASE_IN)
+	if trap_id == "bucket_door":
+		_pour_water()
+		return   # ведро само уедет после слива
 	if def["oneshot"]:
 		var tw2 := create_tween()
 		tw2.tween_interval(1.2)
 		tw2.tween_property(self, "scale", Vector3(0.01, 0.01, 0.01), 0.5)
 		tw2.tween_callback(queue_free)
+
+# ---------------------------------------------------------------- ВОДЯНОЕ ВЕДРО
+
+## Ведро над дверью: модель + вода, которая НАЛИВАЕТСЯ после установки.
+func _build_water_bucket() -> void:
+	bucket_node = Node3D.new()
+	bucket_node.position = Vector3(0, 2.35, 0)
+	add_child(bucket_node)
+	var got := ModelLib.place(bucket_node, "c:bucket", Vector3.ZERO, Vector3(0.44, 0.4, 0.44))
+	if got == null:
+		# фолбэк — процедурное ведро
+		var b := CylinderMesh.new()
+		b.top_radius = 0.22
+		b.bottom_radius = 0.16
+		b.height = 0.3
+		var mi := MeshInstance3D.new()
+		mi.mesh = b
+		mi.material_override = Defs.flat_mat(Color(0.55, 0.6, 0.65))
+		bucket_node.add_child(mi)
+	# вода внутри — поднимается снизу вверх (эффект налива)
+	water_mesh = MeshInstance3D.new()
+	var wm := CylinderMesh.new()
+	wm.top_radius = 0.19
+	wm.bottom_radius = 0.16
+	wm.height = 0.26
+	water_mesh.mesh = wm
+	var wmat := Defs.flat_mat(Color(0.35, 0.6, 0.95, 0.85))
+	wmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	water_mesh.material_override = wmat
+	water_mesh.position = Vector3(0, -0.13, 0)   # старт: почти пусто
+	water_mesh.scale.y = 0.05
+	bucket_node.add_child(water_mesh)
+	# наливаем за 2 секунды
+	var tw := water_mesh.create_tween()
+	tw.tween_interval(0.3)
+	tw.tween_property(water_mesh, "scale:y", 1.0, 2.0).set_trans(Tween.TRANS_SINE)
+	tw.parallel().tween_property(water_mesh, "position:y", 0.0, 2.0).set_trans(Tween.TRANS_SINE)
+
+## Срабатывание: ведро наклоняется, вода выливается струёй, ведро пустеет и уезжает.
+func _pour_water() -> void:
+	if bucket_node == null:
+		queue_free()
+		return
+	# наклон ведра вперёд
+	var tw := bucket_node.create_tween()
+	tw.tween_property(bucket_node, "rotation:x", 2.2, 0.35).set_ease(Tween.EASE_IN)
+	# вода в ведре быстро исчезает (вылилась)
+	if is_instance_valid(water_mesh):
+		var wt := water_mesh.create_tween()
+		wt.tween_interval(0.15)
+		wt.tween_property(water_mesh, "scale:y", 0.02, 0.4)
+		wt.parallel().tween_property(water_mesh, "position:y", -0.13, 0.4)
+	# струя воды вниз
+	_water_stream(bucket_node.global_position + Vector3(0, -0.1, 0))
+	# лужа на полу под дверью
+	get_tree().create_timer(0.5).timeout.connect(func():
+		if is_instance_valid(self):
+			_splash_puddle())
+	# пустое ведро висит ещё секунду, потом уезжает
+	tw.tween_interval(1.0)
+	tw.tween_callback(func():
+		var ft := create_tween()
+		ft.tween_property(self, "scale", Vector3(0.01, 0.01, 0.01), 0.4)
+		ft.tween_callback(queue_free))
+
+## Падающая струя воды (партиклы).
+func _water_stream(pos: Vector3) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = 60
+	p.lifetime = 0.7
+	p.one_shot = false
+	p.global_position = pos
+	p.top_level = true
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	pm.emission_sphere_radius = 0.12
+	pm.direction = Vector3(0, -1, 0)
+	pm.spread = 12.0
+	pm.initial_velocity_min = 2.0
+	pm.initial_velocity_max = 3.5
+	pm.gravity = Vector3(0, -12, 0)
+	pm.scale_min = 0.6
+	pm.scale_max = 1.3
+	pm.color = Color(0.4, 0.65, 1.0, 0.8)
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(0.06, 0.14)
+	var qm := StandardMaterial3D.new()
+	qm.albedo_color = Color(0.45, 0.68, 1.0, 0.8)
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	q.material = qm
+	p.draw_pass_1 = q
+	get_parent().add_child(p)
+	p.emitting = true
+	var tw := p.create_tween()
+	tw.tween_interval(0.6)
+	tw.tween_callback(func(): p.emitting = false)
+	tw.tween_interval(0.9)
+	tw.tween_callback(p.queue_free)
+
+## Лужа-брызги на полу под пролитым ведром.
+func _splash_puddle() -> void:
+	var puddle := MeshInstance3D.new()
+	var pm := CylinderMesh.new()
+	pm.top_radius = 0.5
+	pm.bottom_radius = 0.5
+	pm.height = 0.02
+	puddle.mesh = pm
+	var mat := Defs.flat_mat(Color(0.4, 0.6, 0.95, 0.6))
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.metallic = 0.4
+	mat.roughness = 0.1
+	puddle.material_override = mat
+	puddle.global_position = Vector3(global_position.x, 0.02, global_position.z)
+	puddle.top_level = true
+	puddle.scale = Vector3(0.1, 1, 0.1)
+	get_parent().add_child(puddle)
+	var tw := puddle.create_tween()
+	tw.tween_property(puddle, "scale", Vector3.ONE, 0.5).set_trans(Tween.TRANS_BACK)
+	tw.tween_interval(8.0)
+	tw.tween_property(puddle, "scale:y", 0.0, 1.0)
+	tw.parallel().tween_property(mat, "albedo_color:a", 0.0, 1.0)
+	tw.tween_callback(puddle.queue_free)
 
 # ---------------------------------------------------------------- ВИЗУАЛ
 
@@ -286,7 +414,11 @@ const CUSTOM_MODELS := {
 	"mousetrap": "c:mousetrap", "banana": "c:banana_peel", "marbles": "c:marbles",
 	"firecracker": "c:firecracker", "firecracker_chimney": "c:firecracker",
 	"perfume": "c:perfume", "plate": "c:pressure_plate", "plate_link": "c:pressure_plate",
+	"tape": "c:tape", "garland_shock": "c:garland_shock", "cookie": "c:cookie_plate",
 }
+
+var water_mesh: MeshInstance3D    # уровень воды в ведре (наливается/сливается)
+var bucket_node: Node3D           # само ведро (для наклона при сливе)
 
 func _build_visual() -> void:
 	# сначала пробуем настоящую модель (нейронка, стиль Meccha); нет — процедура
@@ -359,11 +491,7 @@ func _build_visual() -> void:
 			r.height = 2.2
 			_mesh(r, Vector3(0.3, 1.3, 0), Color(0.8, 0.7, 0.5))
 		"bucket_door":
-			var b := CylinderMesh.new()
-			b.top_radius = 0.22
-			b.bottom_radius = 0.16
-			b.height = 0.3
-			_mesh(b, Vector3(0, 2.35, 0), Color(0.55, 0.6, 0.65))
+			_build_water_bucket()
 		"firecracker", "firecracker_chimney":
 			var f := CylinderMesh.new()
 			f.top_radius = 0.06
