@@ -5,6 +5,21 @@
 
 ✅ = уже сгенерено и в игре · ⬜ = нужно сделать
 
+## Как писать хорошие промпты (важно!)
+
+Text-to-3D понимает слова буквально. «bear trap» → плюшевый мишка на мышеловке
+(реальный факт из наших тестов). Правила:
+
+1. **Никаких двусмысленных названий.** Не «bear trap», а «steel foothold trap
+   with two semicircular spring jaws». Описывай МЕХАНИЗМ, а не жаргонное имя.
+2. **Опиши форму и части**, а не только название: «X с Y и Z», из чего состоит,
+   какого цвета, как стоит.
+3. **Негативы в конце** отсекают ложные трактовки: `not an animal, not a toy`.
+4. **Состояние/ракурс**: «open flat on the ground», «upright», «lid closed».
+5. Держи стиль-префикс — он про look, а хвост — про сам предмет.
+
+Шаблон: `<префикс>, <что это + форма + части + материал + цвет>, <состояние>, <негативы>`
+
 ---
 
 ## Ловушки-предметы
@@ -37,16 +52,16 @@
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a spool of thin electric wire`
 
 ⬜ **shards.glb** (битые ёлочные игрушки)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a scatter of broken colorful christmas ornament shards on the floor`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, top-down centered, style of a cozy co-op party game, a small flat scatter of shattered christmas bauble pieces on the floor, sharp colorful glass fragments red green gold, spread in a low pile, not whole ornaments, not a plate`
 
 ✅ **tape.glb** (скотч)
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a roll of duct tape`
 
 ⬜ **oil_puddle.glb** (масляная лужа)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a glossy dark oil puddle, flat on the floor`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, top-down centered, style of a cozy co-op party game, a flat glossy puddle of dark motor oil spread on the floor, irregular blob shape, very thin and flat, reflective black-brown liquid, not a container, not a barrel`
 
 ⬜ **glue_puddle.glb** (клей)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a glossy yellow glue puddle, flat on the floor`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, top-down centered, style of a cozy co-op party game, a flat glossy puddle of sticky yellow glue spread on the floor, irregular blob shape, very thin and flat, glossy honey-colored liquid, not a bottle, not a container`
 
 ✅ **cookie_plate.glb** (печенье с молоком — приманка)
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a plate of cookies with a glass of milk`
@@ -58,7 +73,7 @@
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a string of christmas lights with colorful bulbs`
 
 ⬜ **net.glb** (сеть)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a folded rope capture net`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, top-down centered, style of a cozy co-op party game, a square rope mesh capture net laid flat on the floor, thick beige rope grid with knotted intersections and weighted corner balls, spread open, not a hammock, not a bag, not a fishing rod`
 
 ## Новые ловушки (из списка связок)
 
@@ -72,46 +87,46 @@
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a glossy blue bowling ball`
 
 ⬜ **paint_bucket.glb** (ведро краски)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a paint can with a splash of bright paint`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, upright centered, style of a cozy co-op party game, a cylindrical metal paint can with a wire handle, open top full of bright blue paint, one drip down the side, not a bucket of water, not a flower pot`
 
 ⬜ **flour_bag.glb** (мешок муки)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a paper bag of flour`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, upright centered, style of a cozy co-op party game, a plump paper flour sack standing upright, rolled top, cream-white paper with a simple flour label, dusty look, not a pillow, not a sandbag`
 
-⬜ **bear_trap.glb** (капкан)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a cartoon metal bear trap with rounded jaws`
+⬜ **bear_trap.glb** (капкан — стальной, с дугами-челюстями)
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, top-down centered, style of a cozy co-op party game, a steel foothold hunting trap lying open flat on the floor, two semicircular spring-loaded metal jaws with blunt rounded teeth, a round flat pressure plate in the middle, a short chain, grey metal, not an animal, not a bear, not a teddy, not a mousetrap`
 
 ⬜ **smoke_bomb.glb** (дымовая шашка)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a small round smoke bomb canister`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, upright centered, style of a cozy co-op party game, a small cylindrical smoke grenade canister standing upright, metal tube with a ring pull on top, olive-green body, one simple stripe, not an explosion, not smoke clouds, not a bottle`
 
 ⬜ **flowerpot.glb** (горшок — падает с окна)
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a terracotta flower pot with a small plant`
 
 ⬜ **toaster.glb** (тостер-ловушка)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a chrome pop-up toaster`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, upright centered, style of a cozy co-op party game, a classic two-slot pop-up kitchen toaster, rounded chrome body with two slots on top and a side lever, light blue and chrome, not bread, not a microwave`
 
 ⬜ **hair_dryer.glb** (фен — в воду)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a handheld hair dryer`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, style of a cozy co-op party game, a handheld blow dryer with a round barrel nozzle and a pistol grip handle and a cord, pastel pink and white, not a gun, not a vacuum`
 
 ⬜ **spray_can.glb** (баллончик)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, an aerosol spray can`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, upright centered, style of a cozy co-op party game, a tall cylindrical aerosol spray can standing upright with a round push-button cap on top, glossy metal body with one color label band, not a bottle, not a barrel`
 
 ⬜ **fire_extinguisher.glb**
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a red fire extinguisher`
 
 ⬜ **roller_skates.glb** (коньки)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a pair of roller skates`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a single quad roller skate boot with four wheels on the bottom, white boot with red laces, side view upright, not ice skates, not a shoe without wheels`
 
 ⬜ **lego_bricks.glb** (лего россыпью)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a small scatter of colorful toy building bricks`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, top-down centered, style of a cozy co-op party game, a small flat scatter of loose colorful toy building blocks with round studs on top, red blue yellow green, spread on the floor, not stacked, not a built model`
 
 ⬜ **soap_bar.glb** (мыло)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a bar of soap`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a single rounded rectangular bar of soap lying flat, glossy pastel blue, smooth rounded edges, not a sponge, not a box`
 
 ⬜ **alarm_clock.glb** (будильник — приманка)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a round twin-bell alarm clock`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, upright centered, style of a cozy co-op party game, a retro round analog alarm clock standing on two little feet, two bells on top with a hammer between them, red frame with a white clock face, not a wall clock, not a smartphone`
 
 ⬜ **glitter_bomb.glb**
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a small canister bursting with glitter`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, upright centered, style of a cozy co-op party game, a small closed cardboard tube canister standing upright, pink and gold label, sealed lid, a party popper container, not an explosion, not scattered glitter, not confetti in the air`
 
 ## Инструменты
 
@@ -139,19 +154,19 @@
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a diamond ring with a gold band and a sparkling gem`
 
 ⬜ **jewel_necklace.glb**
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a pearl and gold necklace`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a looped string of round white pearls with a small gold clasp, laid in a coil, not a chain, not a rope`
 
 ⬜ **jewel_crown.glb**
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a small golden crown with red gems`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, upright centered, style of a cozy co-op party game, a small round golden royal crown with five pointed tips, each tip topped with a red gem, gold band base, upright, not a hat, not a ring`
 
 ⬜ **jewel_gold_bar.glb**
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a shiny gold bar ingot`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a single shiny trapezoidal gold bullion ingot lying flat, smooth polished gold, one stamped rectangle on top, not a stack, not a brick wall`
 
 ⬜ **jewel_gem.glb**
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a large faceted red ruby gemstone`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, upright centered, style of a cozy co-op party game, a single large faceted red ruby gemstone, classic diamond cut with flat facets, translucent glossy red, pointed bottom flat top, not a sphere, not a crystal cluster`
 
 ⬜ **safe.glb** (сейф — жирный куш)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a metal safe with a round combination dial`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, upright centered, style of a cozy co-op party game, a small heavy cube-shaped vault safe standing on the floor, a single closed metal door with a round combination dial and a lever handle, dark grey steel with gold trim, door closed, not a cabinet, not a box, not a fridge`
 
 ## Мебель (заменить Kenney-плейсхолдеры)
 
@@ -201,7 +216,7 @@
 `low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, resting on ground, style of a cozy co-op party game, a small bedside nightstand with a drawer`
 
 ⬜ **chandelier.glb** (люстра — падает)
-`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, hanging, style of a cozy co-op party game, a hanging ceiling chandelier with candle bulbs`
+`low-poly, clean cartoon style, soft matte colors, smooth simple shapes, subtle bevels, no fine detail, readable silhouette, neutral studio lighting, single object, centered, style of a cozy co-op party game, a round metal ceiling chandelier with a central column and several curved arms holding candle-shaped bulbs, a short chain on top, warm gold metal, hanging orientation, not a lamp, not a ceiling fan`
 
 ## Ванная / кухня
 
