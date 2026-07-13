@@ -125,6 +125,16 @@ const ITEMS := {
 		"desc": "Соединяет ЛЮБУЮ твою ловушку с люстрой/шкафом/ТВ/ковром НА РАССТОЯНИИ. Наступил там — упало тут.",
 		"only_char": "",
 	},
+	"iron": {
+		"name": "Утюг на верёвке", "cost": 3, "place_time": 2.4,
+		"desc": "Классика «Один дома». Подвешен к потолку и оттянут в сторону. Прошёл под ним — прилетает утюгом в лоб и отшвыривает.",
+		"only_char": "",
+	},
+	"weight": {
+		"name": "Гиря-маятник", "cost": 4, "place_time": 2.8,
+		"desc": "Тяжеленная гиря качается через проход как таран. Сносит с ног и отбрасывает далеко. Ставит только Умник.",
+		"only_char": "brains",
+	},
 }
 
 ## Предметы, которые можно лепить на стены и потолок (не только на пол).
@@ -229,6 +239,16 @@ const TRAPS := {
 		"name": "Бабушкины духи", "item": "perfume",
 		"slow": 0.85, "slow_dur": 4.0, "stun": 0.6, "vis": 0.4, "oneshot": true, "capture_mult": 1.15,
 		"dizzy": 5.0, "disorient": true,
+	},
+	"iron": {
+		"name": "Утюг на верёвке", "item": "iron",
+		"slow": 1.0, "slow_dur": 0.0, "stun": 4.5, "vis": 0.5, "oneshot": true, "capture_mult": 1.5,
+		"knock": -3.2, "dizzy": 2.0,
+	},
+	"weight": {
+		"name": "Гиря-маятник", "item": "weight",
+		"slow": 1.0, "slow_dur": 0.0, "stun": 5.5, "vis": 0.55, "oneshot": true, "capture_mult": 1.6,
+		"knock": -4.5, "dizzy": 2.5,
 	},
 }
 
@@ -434,7 +454,7 @@ const INTERACT_RANGE := 2.2
 const SEARCH_LOOT := {
 	"": 3, "shards": 2, "tape": 2, "banana": 2, "marbles": 2, "mousetrap": 2, "wire": 2,
 	"oil": 1, "glue": 1, "rope": 1, "plate": 1, "perfume": 1, "cookie": 1,
-	"firecracker": 1, "bucket": 1, "garland_shock": 1, "net": 1,
+	"firecracker": 1, "bucket": 1, "garland_shock": 1, "net": 1, "iron": 1,
 }
 
 ## Стартовый чемодан у спавна мелких — базовый набор на команду.

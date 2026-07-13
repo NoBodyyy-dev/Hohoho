@@ -228,6 +228,9 @@ func _play_trigger_fx() -> void:
 	if trap_id == "bucket_door":
 		_pour_water()
 		return   # ведро само уедет после слива
+	if trap_id in ["iron", "weight"]:
+		_swing_pendulum()
+		return   # маятник сам исчезнет после затухания
 	if def["oneshot"]:
 		var tw2 := create_tween()
 		tw2.tween_interval(1.2)
@@ -359,6 +362,73 @@ func _splash_puddle() -> void:
 	tw.parallel().tween_property(mat, "albedo_color:a", 0.0, 1.0)
 	tw.tween_callback(puddle.queue_free)
 
+# ---------------------------------------------------------------- МАЯТНИК (утюг/гиря)
+
+## Подвес к потолку: точка подвеса вверху, верёвка вниз, предмет оттянут в сторону
+## (в покое ждёт жертву). model_id — модель, size — габарит, hang — длина верёвки.
+func _build_pendulum(model_id: String, size: Vector3, hang: float) -> void:
+	pendulum_pivot = Node3D.new()
+	pendulum_pivot.position = Vector3(0, 2.75, 0)   # крепление у потолка
+	add_child(pendulum_pivot)
+	# верёвка подвеса (тугая, прямая — внутри маятника)
+	var rope := MeshInstance3D.new()
+	var rc := CylinderMesh.new()
+	rc.top_radius = 0.018
+	rc.bottom_radius = 0.018
+	rc.height = hang
+	rope.mesh = rc
+	rope.material_override = Defs.fabric_mat(Color(0.82, 0.72, 0.5))
+	rope.position = Vector3(0, -hang * 0.5, 0)
+	pendulum_pivot.add_child(rope)
+	# сам предмет висит на конце верёвки
+	var obj := ModelLib.place(pendulum_pivot, model_id, Vector3(0, -hang, 0), size)
+	if obj == null:
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = size
+		mi.mesh = bm
+		mi.material_override = Defs.flat_mat(Color(0.4, 0.42, 0.48))
+		mi.position = Vector3(0, -hang, 0)
+		pendulum_pivot.add_child(mi)
+	# крюк на потолке
+	var hook := MeshInstance3D.new()
+	var hm := SphereMesh.new()
+	hm.radius = 0.05
+	hm.height = 0.1
+	hook.mesh = hm
+	hook.material_override = Defs.flat_mat(Color(0.5, 0.5, 0.55))
+	pendulum_pivot.add_child(hook)
+	# оттянут в сторону и лениво покачивается в ожидании (tell для внимательных)
+	pendulum_pivot.rotation.x = pendulum_rest
+	pendulum_idle = pendulum_pivot.create_tween().set_loops()
+	pendulum_idle.tween_property(pendulum_pivot, "rotation:x", pendulum_rest + 0.06, 1.2).set_trans(Tween.TRANS_SINE)
+	pendulum_idle.tween_property(pendulum_pivot, "rotation:x", pendulum_rest - 0.06, 1.2).set_trans(Tween.TRANS_SINE)
+
+## Срабатывание: маятник срывается, проносится через низ (удар) и затухает.
+func _swing_pendulum() -> void:
+	if pendulum_pivot == null:
+		return
+	if pendulum_idle != null and pendulum_idle.is_valid():
+		pendulum_idle.kill()
+	var tw := pendulum_pivot.create_tween()
+	# срыв: разгон вниз через 0 (низ) на другую сторону, потом затухающие качели
+	tw.tween_property(pendulum_pivot, "rotation:x", 1.05, 0.32).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	tw.tween_callback(func(): _pendulum_impact())
+	tw.tween_property(pendulum_pivot, "rotation:x", -0.6, 0.45).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(pendulum_pivot, "rotation:x", 0.35, 0.4).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(pendulum_pivot, "rotation:x", -0.18, 0.4).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(pendulum_pivot, "rotation:x", 0.0, 0.5).set_trans(Tween.TRANS_SINE)
+	# после затухания ловушка исчезает
+	tw.tween_interval(0.6)
+	tw.tween_callback(func():
+		var ft := create_tween()
+		ft.tween_property(self, "scale", Vector3(0.01, 0.01, 0.01), 0.4)
+		ft.tween_callback(queue_free))
+
+## Момент прохода через нижнюю точку — свист и лёгкая пыль (жертва уже получила эффект).
+func _pendulum_impact() -> void:
+	PropFX.impact(get_parent(), global_position + Vector3(0, 1.4, 0), Color(0.7, 0.72, 0.8), 5)
+
 # ---------------------------------------------------------------- ВИЗУАЛ
 
 func _mesh(m: Mesh, pos: Vector3, color: Color, emission := 0.0) -> MeshInstance3D:
@@ -390,6 +460,9 @@ const CUSTOM_MODELS := {
 var water_mesh: MeshInstance3D    # уровень воды в ведре (наливается/сливается)
 var bucket_node: Node3D           # само ведро (для наклона при сливе)
 var link_rope: Node3D             # верёвка к связанному объекту (снять при удалении)
+var pendulum_pivot: Node3D        # точка подвеса маятника (утюг/гиря)
+var pendulum_rest := -1.15        # угол оттяжки в покое (радианы)
+var pendulum_idle: Tween          # ленивое покачивание в ожидании
 
 func _build_visual() -> void:
 	# сначала пробуем настоящую модель (нейронка, стиль Meccha); нет — процедура
@@ -463,6 +536,10 @@ func _build_visual() -> void:
 			_mesh(r, Vector3(0.3, 1.3, 0), Color(0.8, 0.7, 0.5))
 		"bucket_door":
 			_build_water_bucket()
+		"iron":
+			_build_pendulum("c:iron", Vector3(0.4, 0.28, 0.5), 1.2)
+		"weight":
+			_build_pendulum("c:weight", Vector3(0.42, 0.42, 0.42), 1.4)
 		"firecracker", "firecracker_chimney":
 			var f := CylinderMesh.new()
 			f.top_radius = 0.06
