@@ -91,3 +91,41 @@ static func place(parent: Node3D, id: String, pos: Vector3, target := Vector3.ZE
 		wrap.add_child(body)
 	parent.add_child(wrap)
 	return wrap
+
+## Инстанцирует модель, РАСТЯНУТОЙ по каждой оси до точного target (форма
+## исходника не сохраняется — для архитектурных модулей типа стеновой панели,
+## где важна точная стыковка размера с соседями, а не пропорции исходника).
+## Центрирует по XZ, ставит дном на y=0, поворачивает, solid=true — коллайдер.
+static func place_stretch(parent: Node3D, id: String, pos: Vector3, target: Vector3, rot_y := 0.0, solid := false) -> Node3D:
+	var ps := scene(id)
+	if ps == null:
+		return null
+	var inst := ps.instantiate() as Node3D
+	var aabb := _calc_aabb(inst)
+	if aabb.size.length() < 0.001:
+		inst.queue_free()
+		return null
+	var scl := Vector3(
+		target.x / aabb.size.x if aabb.size.x > 0.001 else 1.0,
+		target.y / aabb.size.y if aabb.size.y > 0.001 else 1.0,
+		target.z / aabb.size.z if aabb.size.z > 0.001 else 1.0)
+	var wrap := Node3D.new()
+	wrap.name = "MS_" + id.replace(":", "_")
+	var center := aabb.get_center()
+	inst.position = Vector3(-center.x, -aabb.position.y, -center.z) * scl
+	inst.scale = scl
+	wrap.add_child(inst)
+	wrap.position = pos
+	wrap.rotation.y = rot_y
+	wrap.set_meta("size", target)
+	if solid:
+		var body := StaticBody3D.new()
+		var col := CollisionShape3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = Vector3(maxf(target.x, 0.05), maxf(target.y, 0.05), maxf(target.z, 0.05))
+		col.shape = shape
+		col.position = Vector3(0, target.y * 0.5, 0)
+		body.add_child(col)
+		wrap.add_child(body)
+	parent.add_child(wrap)
+	return wrap

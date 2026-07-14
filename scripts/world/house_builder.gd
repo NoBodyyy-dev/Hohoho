@@ -260,11 +260,16 @@ func _build_walls() -> void:
 				if outer and (hash(key) % 3 == 0):
 					_build_window_wall(mid, horizontal, wsize, n)
 				else:
-					_add_static_mat(root, wsize, Vector3(mid.x, WALL_H * 0.5, mid.z), wall_mat)
-					# плинтус изнутри
-					var tsize := Vector3(1.0, 0.18, 0.06) if horizontal else Vector3(0.06, 0.18, 1.0)
-					_add_mesh_mat(root, tsize, Vector3(mid.x, 0.09, mid.z) + n * (WALL_T * 0.5 + 0.06), trim_mat)
-					# картины и венки на стенах
+					var wrot := 0.0 if horizontal else PI * 0.5
+					# настоящая модель стеновой панели (молдинг/плинтус запечены);
+					# нет модели — откат на процедурный ящик + отдельный плинтус
+					var got := ModelLib.place_stretch(root, "c:wall_panel",
+						Vector3(mid.x, 0, mid.z), Vector3(1.0, WALL_H, WALL_T), wrot, true)
+					if got == null:
+						_add_static_mat(root, wsize, Vector3(mid.x, WALL_H * 0.5, mid.z), wall_mat)
+						var tsize := Vector3(1.0, 0.18, 0.06) if horizontal else Vector3(0.06, 0.18, 1.0)
+						_add_mesh_mat(root, tsize, Vector3(mid.x, 0.09, mid.z) + n * (WALL_T * 0.5 + 0.06), trim_mat)
+					# картины и венки на стенах (поверх — и на модели, и на процедуре)
 					if a_in and b_in and hash(key) % 4 == 0:
 						if hash(key) % 8 < 2:
 							_build_wreath(mid, horizontal, n)
