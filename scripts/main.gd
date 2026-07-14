@@ -129,12 +129,24 @@ func _run_water_shot() -> void:
 	await _shot(dir + "/water_puddle.png")
 	get_tree().quit(0)
 
-## Витрина: все custom-модели в ряд под нашим контуром+светом — оценить стиль.
+## Витрина: все custom-модели в ряд под нейтральным студийным светом —
+## честная оценка цвета/сочности, без холодного ночного амбиента матча.
 func _run_showcase() -> void:
 	var dir: String = OS.get_environment("CUSTOM_SHOWCASE")
 	var root := Node3D.new()
 	add_child(root)
-	HouseBuilder.build_night_env(root)
+	var env := Environment.new()
+	PostFX.apply_clean_env(env)
+	# нейтральный светло-серый студийный фон — без ночного холодного амбиента
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.78, 0.78, 0.8)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(1, 1, 1)
+	env.ambient_light_energy = 1.4
+	env.sdfgi_enabled = false
+	var we := WorldEnvironment.new()
+	we.environment = env
+	root.add_child(we)
 	var cam := Camera3D.new()
 	root.add_child(cam)
 	var ids := ["saw", "mousetrap", "rope_coil", "banana_peel", "firecracker", "marbles",
@@ -158,10 +170,20 @@ func _run_showcase() -> void:
 	var total := (placed.size() - 1) * 1.2
 	cam.position = Vector3(total * 0.5, 1.6, total * 0.75 + 3.0)
 	cam.look_at(Vector3(total * 0.5, 0.4, 0))
+	# трёхточечный студийный свет: ключевой + заполняющий + контровой
 	var key := DirectionalLight3D.new()
-	key.rotation_degrees = Vector3(-45, 25, 0)
-	key.light_energy = 1.2
+	key.rotation_degrees = Vector3(-50, 35, 0)
+	key.light_energy = 1.3
 	root.add_child(key)
+	var fill := DirectionalLight3D.new()
+	fill.rotation_degrees = Vector3(-25, -140, 0)
+	fill.light_energy = 0.6
+	fill.light_color = Color(0.9, 0.94, 1.0)
+	root.add_child(fill)
+	var rim := DirectionalLight3D.new()
+	rim.rotation_degrees = Vector3(-20, 170, 0)
+	rim.light_energy = 0.5
+	root.add_child(rim)
 	await get_tree().create_timer(1.0).timeout
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(dir + "/showcase.png")
